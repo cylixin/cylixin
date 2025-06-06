@@ -1,5 +1,3 @@
-// src/lexer.rs
-
 use crate::token::{Token, TokenKind};
 use std::collections::HashMap;
 
