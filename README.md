@@ -39,7 +39,7 @@ For more detailed guidelines on how you can contribute, please see our [CONTRIBU
 
 ## Community
 
-Join the discussion and stay updated on Cylixin's development on our [Instagram](https://www.instagram.com/cylixin) and [GitHub](https://github.com/cylixin). Information on our community forum and other channels will be shared here as they become available.
+Join the discussion and stay updated on Cylixin's development on our [Discord](https://discord.gg/CJ2tsXu59f), [Instagram](https://www.instagram.com/cylixin) and [GitHub](https://github.com/cylixin). Information on our community forum and other channels will be shared here as they become available.
 
 ## License
 
