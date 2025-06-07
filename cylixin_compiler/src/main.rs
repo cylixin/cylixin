@@ -1,21 +1,20 @@
 mod lexer;
 mod token;
-mod parser; // New: import parser
-mod ast;    // New: import ast
+mod parser;
+mod ast;
 
 use lexer::Lexer;
-use parser::Parser; // New: use Parser
+use parser::Parser;
 
 fn main() {
     println!("Starting Cylixin Parser...");
     println!("--------------------------");
 
-    // Example source code to parse
     let source_code = r#"
 let myVar = 123;
 var globalCount = 3.14;
 const PI = 3.14159;
-if myVar >= 10 and PI <= 4.0 then
+if myVar >= 10 and PI <= 4.0 then // This line won't parse yet, but it's in the source
     write("Hello, Cylixin!");
     write("Sum: " + (10 + 5));
 endif
@@ -32,23 +31,23 @@ let emptyCheck = !empty; // Test !empty
     "#;
 
     let lexer = Lexer::new(source_code);
-    let mut parser = Parser::new(lexer); // Create parser instance
+    let mut parser = Parser::new(lexer);
 
-    // For now, let's try to parse just the first expression (123)
-    // We'll expand this to parse the whole program later.
-    println!("Attempting to parse a single expression (e.g., '123' from 'let myVar = 123;'):");
-    if let Some(expr) = parser.parse_expression() {
-        println!("Parsed Expression: {:?}", expr);
-    } else {
-        println!("Failed to parse expression.");
+    println!("Attempting to parse the entire program...");
+    let program_statements = parser.parse_program(); // Call parse_program
+
+    println!("\nParsed Program AST:");
+    for stmt in program_statements {
+        println!("{:?}", stmt); // Print each statement for inspection
     }
 
-    // Check for any parser errors
     if !parser.get_errors().is_empty() {
         println!("\nParser Errors:");
         for err in parser.get_errors() {
             println!("{}", err);
         }
+    } else {
+        println!("\nParsing completed with no errors.");
     }
 
     println!("--------------------------");
