@@ -10,24 +10,44 @@ fn main() {
     println!("Starting Cylixin Parser...");
     println!("--------------------------");
 
+//     let source_code = r#"
+// let myVar = 123;
+// var globalCount = 3.14;
+// const PI = 3.14159;
+// if myVar >= 10 and PI <= 4.0 then // This line won't parse yet, but it's in the source
+//     write("Hello, Cylixin!");
+//     write("Sum: " + (10 + 5));
+// endif
+// fun calculate_area(radius) then
+//     let area = PI * radius ** 2;
+//     return area;
+// endfun
+// let result = @calculate_area(5.0);
+// write("Area:", result);
+// let mySet = {1, 2, 3};
+// let myDic = {"key": "value", "another": 42};
+// let booleanVal = true;
+// let emptyCheck = !empty; // Test !empty
+//     "#;
+
     let source_code = r#"
-let myVar = 123;
-var globalCount = 3.14;
-const PI = 3.14159;
+let myVar = 123
+var globalCount = 3.14
+const PI = 3.14159
 if myVar >= 10 and PI <= 4.0 then // This line won't parse yet, but it's in the source
-    write("Hello, Cylixin!");
-    write("Sum: " + (10 + 5));
+    write("Hello, Cylixin!")
+    write("Sum: " + (10 + 5))
 endif
 fun calculate_area(radius) then
-    let area = PI * radius ** 2;
-    return area;
+    let area = PI * radius ** 2
+    return area
 endfun
 let result = @calculate_area(5.0);
-write("Area:", result);
-let mySet = {1, 2, 3};
-let myDic = {"key": "value", "another": 42};
-let booleanVal = true;
-let emptyCheck = !empty; // Test !empty
+write("Area:", result)
+let mySet = {1, 2, 3}
+let myDic = {"key": "value", "another": 42}
+let booleanVal = true
+let emptyCheck = !empty // Test !empty
     "#;
 
     let lexer = Lexer::new(source_code);
