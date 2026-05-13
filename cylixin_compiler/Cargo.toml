@@ -1,6 +1,13 @@
 [package]
 name = "cylixin_compiler"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "The Cylixin programming language compiler"
+
+[[bin]]
+name = "cylixin"
+path = "src/main.rs"
 
 [dependencies]
+# No external dependencies yet — the lexer is pure Rust.
+# We'll add crates here as we build the parser and interpreter.
