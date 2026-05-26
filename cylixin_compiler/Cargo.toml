@@ -9,5 +9,4 @@ name = "cylixin"
 path = "src/main.rs"
 
 [dependencies]
-# No external dependencies yet — the lexer is pure Rust.
-# We'll add crates here as we build the parser and interpreter.
+inkwell = { version = "0.9.0", features = ["llvm15-0"] }
