@@ -32,6 +32,13 @@ elif count > 3 then
 else
     @writeln("Sum is small.");
 endif
+
+var power: int = 2 ** 10;
+@writeln(power);
+
+var base: int = 3;
+base **= 4;
+@writeln(base);
     "#;
 
     println!("=== Cylixin Compiler ===\n");
