@@ -190,17 +190,21 @@ impl<'ctx> Compiler<'ctx> {
                 }
             }
             Stmt::ExprStmt(expr) => { self.compile_expr(expr)?; Ok(()) }
-            Stmt::If { condition, then_body, elif_arms, else_body, .. } => {
-                self.compile_if(condition, then_body, elif_arms, else_body)
+            Stmt::If { condition, then_body, elif_arms, else_body, end_when } => {
+                self.compile_if(condition, then_body, elif_arms, else_body)?;
+                self.compile_end_when(end_when)
             }
-            Stmt::ForRange { var, from, to, body, .. } => {
-                self.compile_for_range(var, from, to, body)
+            Stmt::ForRange { var, from, to, body, end_when, .. } => {
+                self.compile_for_range(var, from, to, body)?;
+                self.compile_end_when(end_when)
             }
-            Stmt::ForC { init, cond, update, body, .. } => {
-                self.compile_for_c(init, cond, update, body)
+            Stmt::ForC { init, cond, update, body, end_when, .. } => {
+                self.compile_for_c(init, cond, update, body)?;
+                self.compile_end_when(end_when)
             }
-            Stmt::While { condition, body, label, .. } => {
-                self.compile_while(condition, body, label)
+            Stmt::While { condition, body, label, end_when } => {
+                self.compile_while(condition, body, label)?;
+                self.compile_end_when(end_when)
             }
             Stmt::FunDecl { name, params, return_type, body } => {
                 self.compile_fun_decl(name, params, return_type, body)
@@ -538,5 +542,46 @@ impl<'ctx> Compiler<'ctx> {
     fn current_block_needs_terminator(&self) -> bool {
         self.builder.get_insert_block()
             .map_or(true, |bb| bb.get_terminator().is_none())
+    }
+
+    /// Emits the `end_when` guard after a block exits.
+    ///
+    /// Syntax: `endif when (cond): value`
+    ///
+    /// Semantics: if `cond` is true at the block's exit point,
+    /// immediately return `value` from the enclosing function.
+    /// Otherwise fall through to the next statement.
+    fn compile_end_when(&mut self, end_when: &Option<EndWhen>) -> Result<(), CodegenError> {
+        let ew = match end_when {
+            Some(ew) => ew,
+            None => return Ok(()), // nothing to do
+        };
+
+        let parent = self.builder
+            .get_insert_block()
+            .and_then(|b| b.get_parent())
+            .ok_or_else(|| CodegenError::Unsupported("end_when outside function".into()))?;
+
+        // evaluate the guard condition
+        let (cond_val, _) = self.compile_expr(&ew.condition)?;
+
+        // two destinations: early-return block vs fall-through block
+        let early_bb    = self.context.append_basic_block(parent, "endwhen_early");
+        let continue_bb = self.context.append_basic_block(parent, "endwhen_cont");
+
+        self.builder
+            .build_conditional_branch(cond_val.into_int_value(), early_bb, continue_bb)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+        // early-return path: evaluate value and return it
+        self.builder.position_at_end(early_bb);
+        let (ret_val, _) = self.compile_expr(&ew.value)?;
+        self.builder
+            .build_return(Some(&ret_val))
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+        // fall-through path: continue normal execution
+        self.builder.position_at_end(continue_bb);
+        Ok(())
     }
 }
