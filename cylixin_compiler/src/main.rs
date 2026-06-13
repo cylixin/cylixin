@@ -39,6 +39,19 @@ var power: int = 2 ** 10;
 var base: int = 3;
 base **= 4;
 @writeln(base);
+
+fun double_positive(x: int): int then
+    var doubled: int = x + x;
+    if doubled < 0 then
+    endif when (x < 0): -1;
+    return doubled;
+endfun
+
+var r1: int = @double_positive(5);
+@writeln(r1);
+
+var r2: int = @double_positive(-3);
+@writeln(r2);
     "#;
 
     println!("=== Cylixin Compiler ===\n");
