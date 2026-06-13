@@ -164,6 +164,38 @@ impl<'ctx> Compiler<'ctx> {
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 Ok((r.into(), CyType::Bool))
             }
+            // exponentiation — call C's pow(f64, f64) -> f64
+            (CyType::Int | CyType::Long, BinaryOp::Pow) => {
+                let pow_fn = self.module.get_function("pow")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("pow".into()))?;
+                let f64_type = self.context.f64_type();
+                let lf = self.builder.build_signed_int_to_float(lv.into_int_value(), f64_type, "lf")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let rf = self.builder.build_signed_int_to_float(rv.into_int_value(), f64_type, "rf")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let result = self.builder.build_call(pow_fn, &[lf.into(), rf.into()], "pow")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                    .try_as_basic_value();
+                match result {
+                    inkwell::values::ValueKind::Basic(v) => {
+                        let i = self.builder.build_float_to_signed_int(v.into_float_value(), self.context.i64_type(), "ipow")
+                            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                        Ok((i.into(), lt))
+                    }
+                    _ => Err(CodegenError::LLVMError("pow returned no value".into())),
+                }
+            }
+            (CyType::Float, BinaryOp::Pow) => {
+                let pow_fn = self.module.get_function("pow")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("pow".into()))?;
+                let result = self.builder.build_call(pow_fn, &[lv.into(), rv.into()], "fpow")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                    .try_as_basic_value();
+                match result {
+                    inkwell::values::ValueKind::Basic(v) => Ok((v, CyType::Float)),
+                    _ => Err(CodegenError::LLVMError("pow returned no value".into())),
+                }
+            }
             _ => Err(CodegenError::Unsupported(format!("binary op {:?} on {:?}", op, lt))),
         }
     }

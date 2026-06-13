@@ -55,6 +55,7 @@ impl<'ctx> Compiler<'ctx> {
 
     pub fn compile(&mut self, program: &Program) -> Result<String, CodegenError> {
         self.declare_printf();
+        self.declare_pow();
 
         // first pass: declare all functions so they can call each other
         for stmt in &program.body {
@@ -91,9 +92,15 @@ impl<'ctx> Compiler<'ctx> {
 
     fn declare_printf(&self) {
         let i32_type = self.context.i32_type();
-        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
         let printf_type = i32_type.fn_type(&[ptr_type.into()], true);
         self.module.add_function("printf", printf_type, Some(inkwell::module::Linkage::External));
+    }
+
+    fn declare_pow(&self) {
+        let f64_type = self.context.f64_type();
+        let pow_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+        self.module.add_function("pow", pow_type, Some(inkwell::module::Linkage::External));
     }
 
     fn declare_function(&mut self, name: &str, params: &[Param], return_type: &Option<CyType>)
@@ -122,7 +129,7 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Float => self.context.f64_type().into(),
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
-            CyType::StringType => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            CyType::StringType => self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),
             _ => self.context.i64_type().into(),
         }
     }
@@ -133,7 +140,7 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Float => self.context.f64_type().into(),
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
-            CyType::StringType => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            CyType::StringType => self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),
             _ => self.context.i64_type().into(),
         }
     }
@@ -236,6 +243,43 @@ impl<'ctx> Compiler<'ctx> {
                 let r = self.builder.build_float_sub(lhs.into_float_value(), rhs.into_float_value(), "fsub")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 Ok(r.into())
+            }
+            (CyType::Int | CyType::Long, AssignOp::ModAssign) => {
+                let r = self.builder.build_int_signed_rem(lhs.into_int_value(), rhs.into_int_value(), "mod")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                Ok(r.into())
+            }
+            // **= calls C's pow() just like the binary ** operator
+            (CyType::Int | CyType::Long, AssignOp::PowAssign) => {
+                let pow_fn = self.module.get_function("pow")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("pow".into()))?;
+                let f64_type = self.context.f64_type();
+                let lf = self.builder.build_signed_int_to_float(lhs.into_int_value(), f64_type, "lf")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let rf = self.builder.build_signed_int_to_float(rhs.into_int_value(), f64_type, "rf")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let result = self.builder.build_call(pow_fn, &[lf.into(), rf.into()], "pow")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                    .try_as_basic_value();
+                match result {
+                    inkwell::values::ValueKind::Basic(v) => {
+                        let i = self.builder.build_float_to_signed_int(v.into_float_value(), self.context.i64_type(), "ipow")
+                            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                        Ok(i.into())
+                    }
+                    _ => Err(CodegenError::LLVMError("pow returned no value".into())),
+                }
+            }
+            (CyType::Float, AssignOp::PowAssign) => {
+                let pow_fn = self.module.get_function("pow")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("pow".into()))?;
+                let result = self.builder.build_call(pow_fn, &[lhs.into(), rhs.into()], "fpow")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                    .try_as_basic_value();
+                match result {
+                    inkwell::values::ValueKind::Basic(v) => Ok(v),
+                    _ => Err(CodegenError::LLVMError("pow returned no value".into())),
+                }
             }
             _ => Err(CodegenError::Unsupported(format!("compound {:?} on {:?}", op, ty))),
         }
