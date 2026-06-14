@@ -29,7 +29,7 @@ impl std::fmt::Display for CodegenError {
 
 struct LoopContext<'ctx> {
     exit_block: BasicBlock<'ctx>,
-    _label: Option<String>,
+    label: Option<String>,
 }
 
 pub struct Compiler<'ctx> {
@@ -194,12 +194,12 @@ impl<'ctx> Compiler<'ctx> {
                 self.compile_if(condition, then_body, elif_arms, else_body)?;
                 self.compile_end_when(end_when)
             }
-            Stmt::ForRange { var, from, to, body, end_when, .. } => {
-                self.compile_for_range(var, from, to, body)?;
+            Stmt::ForRange { var, from, to, body, label, end_when } => {
+                self.compile_for_range(var, from, to, body, label)?;
                 self.compile_end_when(end_when)
             }
-            Stmt::ForC { init, cond, update, body, end_when, .. } => {
-                self.compile_for_c(init, cond, update, body)?;
+            Stmt::ForC { init, cond, update, body, label, end_when } => {
+                self.compile_for_c(init, cond, update, body, label)?;
                 self.compile_end_when(end_when)
             }
             Stmt::While { condition, body, label, end_when } => {
@@ -210,7 +210,7 @@ impl<'ctx> Compiler<'ctx> {
                 self.compile_fun_decl(name, params, return_type, body)
             }
             Stmt::Return(expr) => self.compile_return(expr),
-            Stmt::Break(_label) => self.compile_break(),
+            Stmt::Break(label) => self.compile_break(label),
         }
     }
 
@@ -359,7 +359,7 @@ impl<'ctx> Compiler<'ctx> {
         Ok(())
     }
 
-    fn compile_for_range(&mut self, var: &str, from: &Expr, to: &Expr, body: &[Stmt])
+    fn compile_for_range(&mut self, var: &str, from: &Expr, to: &Expr, body: &[Stmt], label: &Option<String>)
         -> Result<(), CodegenError>
     {
         let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
@@ -391,7 +391,7 @@ impl<'ctx> Compiler<'ctx> {
 
         // body
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, _label: None });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
@@ -412,7 +412,7 @@ impl<'ctx> Compiler<'ctx> {
         Ok(())
     }
 
-    fn compile_for_c(&mut self, init: &Stmt, cond: &Expr, update: &Stmt, body: &[Stmt])
+    fn compile_for_c(&mut self, init: &Stmt, cond: &Expr, update: &Stmt, body: &[Stmt], label: &Option<String>)
         -> Result<(), CodegenError>
     {
         let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
@@ -431,7 +431,7 @@ impl<'ctx> Compiler<'ctx> {
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, _label: None });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
@@ -462,7 +462,7 @@ impl<'ctx> Compiler<'ctx> {
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, _label: label.clone() });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
@@ -530,10 +530,24 @@ impl<'ctx> Compiler<'ctx> {
         Ok(())
     }
 
-    fn compile_break(&mut self) -> Result<(), CodegenError> {
-        let exit_bb = self.loop_stack.last()
-            .ok_or_else(|| CodegenError::Unsupported("break outside loop".into()))?
-            .exit_block;
+    fn compile_break(&mut self, label: &Option<String>) -> Result<(), CodegenError> {
+        let exit_bb = match label {
+            // labeled break — walk the stack to find the named loop
+            Some(lbl) => {
+                self.loop_stack.iter().rev()
+                    .find(|ctx| ctx.label.as_deref() == Some(lbl.as_str()))
+                    .ok_or_else(|| CodegenError::Unsupported(
+                        format!("no loop labeled '{}' in scope", lbl)
+                    ))?
+                    .exit_block
+            }
+            // unlabeled break — exit the innermost loop
+            None => {
+                self.loop_stack.last()
+                    .ok_or_else(|| CodegenError::Unsupported("break outside loop".into()))?
+                    .exit_block
+            }
+        };
         self.builder.build_unconditional_branch(exit_bb)
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
         Ok(())
