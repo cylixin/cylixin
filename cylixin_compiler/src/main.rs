@@ -52,6 +52,19 @@ var r1: int = @double_positive(5);
 
 var r2: int = @double_positive(-3);
 @writeln(r2);
+
+var total: int = 0;
+for outer: i from 0 to 5 then
+    for j from 0 to 5 then
+        if i == 2 then
+            if j == 1 then
+                break outer;
+            endif
+        endif
+        total += 1;
+    endfor
+endfor
+@writeln(total);
     "#;
 
     println!("=== Cylixin Compiler ===\n");
