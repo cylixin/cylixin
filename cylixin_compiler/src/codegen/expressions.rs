@@ -58,7 +58,18 @@ impl<'ctx> Compiler<'ctx> {
         let (lv, lt) = self.compile_expr(left)?;
         let (rv, _rt) = self.compile_expr(right)?;
 
-        match (&lt, op) {
+        // For strict equality, if types differ, it's always false.
+        // If they match, we evaluate it exactly like normal equality.
+        let effective_op = if op == &BinaryOp::StrictEq {
+            if lt != _rt {
+                return Ok((self.context.bool_type().const_int(0, false).into(), CyType::Bool));
+            }
+            &BinaryOp::Eq
+        } else {
+            op
+        };
+
+        match (&lt, effective_op) {
             // int/long arithmetic
             (CyType::Int | CyType::Long, BinaryOp::Add) => {
                 let r = self.builder.build_int_add(lv.into_int_value(), rv.into_int_value(), "add")
