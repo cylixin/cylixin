@@ -65,6 +65,12 @@ for outer: i from 0 to 5 then
     endfor
 endfor
 @writeln(total);
+
+var st1: bool = 5 === 5;
+@writeln(st1);
+
+var st2: bool = 5 === 5.0;
+@writeln(st2);
     "#;
 
     println!("=== Cylixin Compiler ===\n");
