@@ -71,6 +71,12 @@ var st1: bool = 5 === 5;
 
 var st2: bool = 5 === 5.0;
 @writeln(st2);
+
+var hw: string = "Hello " + "world!";
+@writeln(hw);
+
+hw += "!!";
+@writeln(hw);
     "#;
 
     println!("=== Cylixin Compiler ===\n");

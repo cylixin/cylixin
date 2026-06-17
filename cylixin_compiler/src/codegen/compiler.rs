@@ -56,6 +56,7 @@ impl<'ctx> Compiler<'ctx> {
     pub fn compile(&mut self, program: &Program) -> Result<String, CodegenError> {
         self.declare_printf();
         self.declare_pow();
+        self.declare_string_funcs();
 
         // first pass: declare all functions so they can call each other
         for stmt in &program.body {
@@ -101,6 +102,23 @@ impl<'ctx> Compiler<'ctx> {
         let f64_type = self.context.f64_type();
         let pow_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
         self.module.add_function("pow", pow_type, Some(inkwell::module::Linkage::External));
+    }
+
+    fn declare_string_funcs(&self) {
+        let i64_type = self.context.i64_type();
+        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+
+        let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+        self.module.add_function("malloc", malloc_type, Some(inkwell::module::Linkage::External));
+
+        let strlen_type = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("strlen", strlen_type, Some(inkwell::module::Linkage::External));
+
+        let strcpy_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+        self.module.add_function("strcpy", strcpy_type, Some(inkwell::module::Linkage::External));
+
+        let strcat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+        self.module.add_function("strcat", strcat_type, Some(inkwell::module::Linkage::External));
     }
 
     fn declare_function(&mut self, name: &str, params: &[Param], return_type: &Option<CyType>)
@@ -218,6 +236,44 @@ impl<'ctx> Compiler<'ctx> {
         -> Result<BasicValueEnum<'ctx>, CodegenError>
     {
         match (ty, op) {
+            (CyType::StringType, AssignOp::AddAssign) => {
+                let strlen_fn = self.module.get_function("strlen")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strlen".into()))?;
+                let malloc_fn = self.module.get_function("malloc")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("malloc".into()))?;
+                let strcpy_fn = self.module.get_function("strcpy")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strcpy".into()))?;
+                let strcat_fn = self.module.get_function("strcat")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strcat".into()))?;
+
+                let extract_val = |result: inkwell::values::CallSiteValue<'ctx>| -> Result<inkwell::values::BasicValueEnum<'ctx>, CodegenError> {
+                    match result.try_as_basic_value() {
+                        inkwell::values::ValueKind::Basic(v) => Ok(v),
+                        _ => Err(CodegenError::LLVMError("function returned no value".into())),
+                    }
+                };
+
+                let len_l = extract_val(self.builder.build_call(strlen_fn, &[lhs.into()], "len_l")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+                let len_r = extract_val(self.builder.build_call(strlen_fn, &[rhs.into()], "len_r")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+
+                let total_len = self.builder.build_int_add(len_l.into_int_value(), len_r.into_int_value(), "total_len")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let one = self.context.i64_type().const_int(1, false);
+                let malloc_size = self.builder.build_int_add(total_len, one, "malloc_size")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                let new_str = extract_val(self.builder.build_call(malloc_fn, &[malloc_size.into()], "new_str")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+
+                self.builder.build_call(strcpy_fn, &[new_str.into(), lhs.into()], "strcpy_call")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                self.builder.build_call(strcat_fn, &[new_str.into(), rhs.into()], "strcat_call")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                Ok(new_str)
+            }
             (CyType::Int | CyType::Long, AssignOp::AddAssign) => {
                 let r = self.builder.build_int_add(lhs.into_int_value(), rhs.into_int_value(), "add")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
