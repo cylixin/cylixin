@@ -70,6 +70,45 @@ impl<'ctx> Compiler<'ctx> {
         };
 
         match (&lt, effective_op) {
+            // string concatenation
+            (CyType::StringType, BinaryOp::Add) => {
+                let strlen_fn = self.module.get_function("strlen")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strlen".into()))?;
+                let malloc_fn = self.module.get_function("malloc")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("malloc".into()))?;
+                let strcpy_fn = self.module.get_function("strcpy")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strcpy".into()))?;
+                let strcat_fn = self.module.get_function("strcat")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("strcat".into()))?;
+
+                let extract_val = |result: inkwell::values::CallSiteValue<'ctx>| -> Result<inkwell::values::BasicValueEnum<'ctx>, CodegenError> {
+                    match result.try_as_basic_value() {
+                        inkwell::values::ValueKind::Basic(v) => Ok(v),
+                        _ => Err(CodegenError::LLVMError("function returned no value".into())),
+                    }
+                };
+
+                let len_l = extract_val(self.builder.build_call(strlen_fn, &[lv.into()], "len_l")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+                let len_r = extract_val(self.builder.build_call(strlen_fn, &[rv.into()], "len_r")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+
+                let total_len = self.builder.build_int_add(len_l.into_int_value(), len_r.into_int_value(), "total_len")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let one = self.context.i64_type().const_int(1, false);
+                let malloc_size = self.builder.build_int_add(total_len, one, "malloc_size")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                let new_str = extract_val(self.builder.build_call(malloc_fn, &[malloc_size.into()], "new_str")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?)?;
+
+                self.builder.build_call(strcpy_fn, &[new_str.into(), lv.into()], "strcpy_call")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                self.builder.build_call(strcat_fn, &[new_str.into(), rv.into()], "strcat_call")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                Ok((new_str, CyType::StringType))
+            }
             // int/long arithmetic
             (CyType::Int | CyType::Long, BinaryOp::Add) => {
                 let r = self.builder.build_int_add(lv.into_int_value(), rv.into_int_value(), "add")
