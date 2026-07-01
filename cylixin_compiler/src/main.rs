@@ -77,6 +77,17 @@ var hw: string = "Hello " + "world!";
 
 hw += "!!";
 @writeln(hw);
+
+var nums: arr<int> = [10, 20, 30, 40, 50];
+@writeln(nums[0]);
+@writeln(nums[2]);
+@writeln(nums[4]);
+
+nums[2] = 99;
+@writeln(nums[2]);
+
+nums[0] += 5;
+@writeln(nums[0]);
     "#;
 
     println!("=== Cylixin Compiler ===\n");
