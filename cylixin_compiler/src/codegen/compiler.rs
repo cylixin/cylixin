@@ -148,6 +148,10 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
             CyType::StringType => self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),
+            // Arrays (and future Set/Dic) are opaque pointers to heap-allocated blocks
+            CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
+                self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()
+            }
             _ => self.context.i64_type().into(),
         }
     }
@@ -158,7 +162,9 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Float => self.context.f64_type().into(),
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
-            CyType::StringType => self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),
+            CyType::StringType | CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
+                self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()
+            }
             _ => self.context.i64_type().into(),
         }
     }
@@ -202,8 +208,55 @@ impl<'ctx> Compiler<'ctx> {
                             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                         Ok(())
                     }
-                    AssignTarget::Index { .. } => {
-                        Err(CodegenError::Unsupported("index assignment".into()))
+                    AssignTarget::Index { name, index } => {
+                        let (arr_ptr, arr_ty) = self.variables.get(name)
+                            .ok_or_else(|| CodegenError::UndefinedVariable(name.clone()))?;
+                        let arr_ptr = *arr_ptr;
+                        let arr_ty = arr_ty.clone();
+
+                        let elem_ty = match &arr_ty {
+                            CyType::Arr(Some(inner)) => *inner.clone(),
+                            _ => CyType::Int,
+                        };
+
+                        let i64_type = self.context.i64_type();
+                        let ptr_type = i64_type.ptr_type(inkwell::AddressSpace::default());
+
+                        // Load the array base pointer (i8*), cast to i64*
+                        let base = self.builder.build_load(
+                            self.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                            arr_ptr, "arr_base"
+                        ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                        let i64_ptr = self.builder.build_pointer_cast(
+                            base.into_pointer_value(), ptr_type, "arr_i64ptr"
+                        ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                        // Compute slot = index + 1
+                        let (idx_val, _) = self.compile_expr(index)?;
+                        let one = i64_type.const_int(1, false);
+                        let slot = self.builder.build_int_add(idx_val.into_int_value(), one, "slot")
+                            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                        let elem_ptr = unsafe {
+                            self.builder.build_gep(i64_type, i64_ptr, &[slot], "idx_ptr")
+                                .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                        };
+
+                        let final_val = if matches!(op, AssignOp::Assign) {
+                            val
+                        } else {
+                            // Load current, apply compound op
+                            let current_raw = self.builder.build_load(i64_type, elem_ptr, "cur_elem")
+                                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                            let current = self.i64_slot_to_value(current_raw, &elem_ty)?;
+                            self.apply_compound_op(&elem_ty, current, val, op)?
+                        };
+
+                        let store_val = self.value_to_i64_slot(&final_val, &elem_ty)?;
+                        self.builder.build_store(elem_ptr, store_val)
+                            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                        Ok(())
                     }
                 }
             }
