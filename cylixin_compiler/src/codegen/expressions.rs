@@ -49,6 +49,12 @@ impl<'ctx> Compiler<'ctx> {
             Expr::ArrayLit(elements) => {
                 self.compile_array_lit(elements)
             }
+            Expr::SetLit(elements) => {
+                self.compile_set_lit(elements)
+            }
+            Expr::DictLit(pairs) => {
+                self.compile_dict_lit(pairs)
+            }
             Expr::Index { collection, index } => {
                 self.compile_index(collection, index)
             }
@@ -114,40 +120,113 @@ impl<'ctx> Compiler<'ctx> {
         -> Result<(BasicValueEnum<'ctx>, CyType), CodegenError>
     {
         let i64_type = self.context.i64_type();
-        let (arr_val, arr_ty) = self.compile_expr(collection)?;
+        let (coll_val, coll_ty) = self.compile_expr(collection)?;
 
-        let elem_ty = match &arr_ty {
-            CyType::Arr(Some(inner)) => *inner.clone(),
-            CyType::Arr(None) => CyType::Int, // fallback
-            _ => return Err(CodegenError::Unsupported(format!("indexing on {:?}", arr_ty))),
-        };
+        match &coll_ty {
+            CyType::Arr(inner) => {
+                let elem_ty = inner.as_ref().map(|t| *t.clone()).unwrap_or(CyType::Int);
+                let (idx_val, _) = self.compile_expr(index)?;
 
-        let (idx_val, _) = self.compile_expr(index)?;
+                let i64_ptr = self.builder.build_pointer_cast(
+                    coll_val.into_pointer_value(),
+                    i64_type.ptr_type(inkwell::AddressSpace::default()),
+                    "arr_i64ptr"
+                ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
-        // arr_val is i8*, cast to i64*
-        let i64_ptr = self.builder.build_pointer_cast(
-            arr_val.into_pointer_value(),
-            i64_type.ptr_type(inkwell::AddressSpace::default()),
-            "arr_i64ptr"
-        ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let one = i64_type.const_int(1, false);
+                let slot = self.builder.build_int_add(idx_val.into_int_value(), one, "slot")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
-        // Slot = index + 1 (skip the length header)
-        let one = i64_type.const_int(1, false);
-        let slot = self.builder.build_int_add(idx_val.into_int_value(), one, "slot")
-            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let elem_ptr = unsafe {
+                    self.builder.build_gep(i64_type, i64_ptr, &[slot], "idx_ptr")
+                        .map_err(|e| CodegenError::LLVMError(e.to_string()))?
+                };
 
-        let elem_ptr = unsafe {
-            self.builder.build_gep(i64_type, i64_ptr, &[slot], "idx_ptr")
-                .map_err(|e| CodegenError::LLVMError(e.to_string()))?
-        };
+                let raw_val = self.builder.build_load(i64_type, elem_ptr, "idx_val")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
-        let raw_val = self.builder.build_load(i64_type, elem_ptr, "idx_val")
-            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let typed_val = self.i64_slot_to_value(raw_val, &elem_ty)?;
+                Ok((typed_val, elem_ty))
+            }
+            CyType::Dic(_, val_ty) => {
+                let val_elem_ty = val_ty.as_ref().map(|t| *t.clone()).unwrap_or(CyType::Int);
+                let dict_get = self.module.get_function("cy_dict_get")
+                    .ok_or_else(|| CodegenError::UndefinedFunction("cy_dict_get".into()))?;
 
-        // Convert from i64 slot back to the element's actual type
-        let typed_val = self.i64_slot_to_value(raw_val, &elem_ty)?;
-        Ok((typed_val, elem_ty))
+                let (key_val, key_ty) = self.compile_expr(index)?;
+                let key_i64 = self.value_to_i64_slot(&key_val, &key_ty)?;
+
+                let result = self.builder.build_call(dict_get, &[coll_val.into(), key_i64.into()], "dict_val")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                let raw = match result.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(v) => v,
+                    _ => return Err(CodegenError::LLVMError("cy_dict_get returned no value".into())),
+                };
+
+                let typed_val = self.i64_slot_to_value(raw, &val_elem_ty)?;
+                Ok((typed_val, val_elem_ty))
+            }
+            _ => Err(CodegenError::Unsupported(format!("indexing on {:?}", coll_ty))),
+        }
     }
+
+    fn compile_set_lit(&self, elements: &[Expr])
+        -> Result<(BasicValueEnum<'ctx>, CyType), CodegenError>
+    {
+        let set_new = self.module.get_function("cy_set_new")
+            .ok_or_else(|| CodegenError::UndefinedFunction("cy_set_new".into()))?;
+        let set_add = self.module.get_function("cy_set_add")
+            .ok_or_else(|| CodegenError::UndefinedFunction("cy_set_add".into()))?;
+
+        let result = self.builder.build_call(set_new, &[], "set_ptr")
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        let set_ptr = match result.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(v) => v,
+            _ => return Err(CodegenError::LLVMError("cy_set_new returned no value".into())),
+        };
+
+        let mut elem_ty = CyType::Int;
+        for (i, elem_expr) in elements.iter().enumerate() {
+            let (val, ty) = self.compile_expr(elem_expr)?;
+            if i == 0 { elem_ty = ty.clone(); }
+            let val_i64 = self.value_to_i64_slot(&val, &ty)?;
+            self.builder.build_call(set_add, &[set_ptr.into(), val_i64.into()], "set_add")
+                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        }
+
+        Ok((set_ptr, CyType::Set(Some(Box::new(elem_ty)))))
+    }
+
+    fn compile_dict_lit(&self, pairs: &[(Expr, Expr)])
+        -> Result<(BasicValueEnum<'ctx>, CyType), CodegenError>
+    {
+        let dict_new = self.module.get_function("cy_dict_new")
+            .ok_or_else(|| CodegenError::UndefinedFunction("cy_dict_new".into()))?;
+        let dict_set = self.module.get_function("cy_dict_set")
+            .ok_or_else(|| CodegenError::UndefinedFunction("cy_dict_set".into()))?;
+
+        let result = self.builder.build_call(dict_new, &[], "dict_ptr")
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        let dict_ptr = match result.try_as_basic_value() {
+            inkwell::values::ValueKind::Basic(v) => v,
+            _ => return Err(CodegenError::LLVMError("cy_dict_new returned no value".into())),
+        };
+
+        let mut key_ty = CyType::Int;
+        let mut val_ty = CyType::Int;
+        for (i, (key_expr, val_expr)) in pairs.iter().enumerate() {
+            let (k, kt) = self.compile_expr(key_expr)?;
+            let (v, vt) = self.compile_expr(val_expr)?;
+            if i == 0 { key_ty = kt.clone(); val_ty = vt.clone(); }
+            let k_i64 = self.value_to_i64_slot(&k, &kt)?;
+            let v_i64 = self.value_to_i64_slot(&v, &vt)?;
+            self.builder.build_call(dict_set, &[dict_ptr.into(), k_i64.into(), v_i64.into()], "dict_set")
+                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        }
+
+        Ok((dict_ptr, CyType::Dic(Some(Box::new(key_ty)), Some(Box::new(val_ty)))))
+    }
+
 
     /// Converts any value to an i64 for uniform storage in array slots.
     fn value_to_i64_slot(&self, val: &BasicValueEnum<'ctx>, ty: &CyType)
@@ -169,7 +248,7 @@ impl<'ctx> Compiler<'ctx> {
                 self.builder.build_int_z_extend(val.into_int_value(), i64_type, "c2i")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))
             }
-            CyType::StringType | CyType::Arr(_) => {
+            CyType::StringType | CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
                 self.builder.build_ptr_to_int(val.into_pointer_value(), i64_type, "p2i")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))
             }
@@ -198,7 +277,7 @@ impl<'ctx> Compiler<'ctx> {
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 Ok(trunc.into())
             }
-            CyType::StringType | CyType::Arr(_) => {
+            CyType::StringType | CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
                 let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
                 let ptr = self.builder.build_int_to_ptr(raw.into_int_value(), ptr_type, "i2p")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;

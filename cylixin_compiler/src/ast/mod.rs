@@ -76,6 +76,8 @@ pub enum Expr {
     },
 
     ArrayLit(Vec<Expr>),
+    SetLit(Vec<Expr>),
+    DictLit(Vec<(Expr, Expr)>),
     Grouped(Box<Expr>),
 }
 
