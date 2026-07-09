@@ -536,6 +536,45 @@ impl Parser {
                 Ok(Expr::ArrayLit(elements))
             }
 
+            TokenKind::LBrace => {
+                // Could be set literal {1, 2, 3} or dict literal {"key": value}
+                // Empty braces {} → empty set
+                if self.check(&TokenKind::RBrace) {
+                    self.advance();
+                    return Ok(Expr::SetLit(Vec::new()));
+                }
+
+                // Parse first expression, then look ahead
+                let first = self.parse_expression()?;
+
+                if self.check(&TokenKind::Colon) {
+                    // Dictionary: {"key": value, ...}
+                    self.advance(); // consume ':'
+                    let first_val = self.parse_expression()?;
+                    let mut pairs = vec![(first, first_val)];
+                    while self.check(&TokenKind::Comma) {
+                        self.advance();
+                        if self.check(&TokenKind::RBrace) { break; }
+                        let k = self.parse_expression()?;
+                        self.expect(TokenKind::Colon, ":")?;
+                        let v = self.parse_expression()?;
+                        pairs.push((k, v));
+                    }
+                    self.expect(TokenKind::RBrace, "}")?;
+                    Ok(Expr::DictLit(pairs))
+                } else {
+                    // Set: {1, 2, 3}
+                    let mut elements = vec![first];
+                    while self.check(&TokenKind::Comma) {
+                        self.advance();
+                        if self.check(&TokenKind::RBrace) { break; }
+                        elements.push(self.parse_expression()?);
+                    }
+                    self.expect(TokenKind::RBrace, "}")?;
+                    Ok(Expr::SetLit(elements))
+                }
+            }
+
             other => Err(ParseError::UnexpectedToken {
                 expected: "expression".into(),
                 found:    format!("{:?}", other),

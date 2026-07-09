@@ -88,6 +88,16 @@ nums[2] = 99;
 
 nums[0] += 5;
 @writeln(nums[0]);
+
+var mySet: set<int> = {100, 200, 300};
+@writeln(mySet); // Will print pointer for now
+
+var myDict: dic<int, int> = {1: 10, 2: 20};
+@writeln(myDict[1]);
+@writeln(myDict[2]);
+
+myDict[1] = 99;
+@writeln(myDict[1]);
     "#;
 
     println!("=== Cylixin Compiler ===\n");

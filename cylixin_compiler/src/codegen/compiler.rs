@@ -57,6 +57,7 @@ impl<'ctx> Compiler<'ctx> {
         self.declare_printf();
         self.declare_pow();
         self.declare_string_funcs();
+        self.declare_collection_funcs();
 
         // first pass: declare all functions so they can call each other
         for stmt in &program.body {
@@ -119,6 +120,48 @@ impl<'ctx> Compiler<'ctx> {
 
         let strcat_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
         self.module.add_function("strcat", strcat_type, Some(inkwell::module::Linkage::External));
+    }
+
+    fn declare_collection_funcs(&self) {
+        let i64_type = self.context.i64_type();
+        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let void_type = self.context.void_type();
+
+        // cy_dict_new() -> ptr
+        let dict_new_ty = ptr_type.fn_type(&[], false);
+        self.module.add_function("cy_dict_new", dict_new_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_dict_set(ptr, i64, i64) -> void
+        let dict_set_ty = void_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into()], false);
+        self.module.add_function("cy_dict_set", dict_set_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_dict_get(ptr, i64) -> i64
+        let dict_get_ty = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("cy_dict_get", dict_get_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_dict_has(ptr, i64) -> i64
+        let dict_has_ty = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("cy_dict_has", dict_has_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_dict_size(ptr) -> i64
+        let dict_size_ty = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_dict_size", dict_size_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_set_new() -> ptr
+        let set_new_ty = ptr_type.fn_type(&[], false);
+        self.module.add_function("cy_set_new", set_new_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_set_add(ptr, i64) -> void
+        let set_add_ty = void_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("cy_set_add", set_add_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_set_contains(ptr, i64) -> i64
+        let set_contains_ty = i64_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+        self.module.add_function("cy_set_contains", set_contains_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_set_size(ptr) -> i64
+        let set_size_ty = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_set_size", set_size_ty, Some(inkwell::module::Linkage::External));
     }
 
     fn declare_function(&mut self, name: &str, params: &[Param], return_type: &Option<CyType>)
