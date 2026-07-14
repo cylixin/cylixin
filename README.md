@@ -1,55 +1,137 @@
-# # Cylixin
+<div align="center">
+
+# Cylixin
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: Early Development](https://img.shields.io/badge/status-early%20development-orange.svg)](#project-status)
 
-**A New Programming Language for High-Performance, Cross-Platform Development**
+**A statically-typed, explicit-syntax programming language, compiled to native code via LLVM.**
 
-## Introduction
+[Syntax Reference](docs/syntax.md) · [Design Principles](docs/design_principles.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
 
-Cylixin is an ambitious new programming language under active development. Our goal is to create a powerful yet lightweight solution for building applications across various platforms, featuring a simple and intuitive syntax for both user interfaces and backend systems – all from a single codebase.
+</div>
 
-For insights into the core ideas and direction behind Cylixin, please refer to our [Design Principles](docs/design_principles.md). For a detailed look at the language's structure and grammar, see the [Cylixin Syntax documentation](docs/syntax.md).
+---
 
-## Key Goals
+## What is Cylixin?
 
-* **High Performance:** Designed for efficiency and speed in demanding tasks.
-* **Lightweight Execution:** Minimal runtime footprint for broader applicability.
-* **Simple and Intuitive Syntax:** Focusing on developer productivity and ease of learning.
-* **Cross-Platform Development:** Write once, deploy across mobile (iOS, Android), web, and desktop.
-* **Unified UI Framework:** Integrated or tightly coupled framework for native-like UIs on all platforms.
-* **Effortless Backend Development:** Robust capabilities for server-side logic and database interaction.
+Cylixin is a programming language with a deliberately explicit syntax: blocks are opened with `then` and closed with type-specific terminators (`endif`, `endfor`, `endwhile`, `endfun`), function calls are prefixed with `@`, and every variable can be given an explicit type annotation. The goal is code whose structure is unambiguous at a glance, without relying on indentation.
 
-## Getting Started (Early Development Stage)
+The `cylixin_compiler` in this repository takes Cylixin source, lexes and parses it into an AST, and generates LLVM IR, which is then compiled to a native executable via `clang`/`llc`. This is a from-scratch compiler front-end and backend written in Rust, using [`inkwell`](https://github.com/TheDan64/inkwell) as the LLVM binding.
 
-Cylixin is currently in its initial development phases. There is no stable release or installation method available yet. This repository is where the core language implementation is taking shape.
+For the philosophy behind these design choices, see [Design Principles](docs/design_principles.md).
 
-**Current Focus:**
+## Project Status
 
-* Laying the foundation for the language architecture.
-* Exploring the best approach for compilation or interpretation.
-* Experimenting with the language's syntax and core features (as detailed in [Cylixin Syntax](docs/syntax.md)).
+Cylixin is **pre-alpha**. There is no package manager and no standard library beyond `write`/`writeln`, and there's no installable release yet: you build the compiler from source and invoke it directly. That said, the core pipeline is functional today:
 
-We will provide updates on our progress here. Stay tuned for more information on our official website and documentation as they become available.
+| Stage | Status |
+|---|---|
+| Lexer | ✅ Working |
+| Parser → AST | ✅ Working |
+| LLVM IR codegen | ✅ Working (ints, longs, floats, bools, chars, strings, arrays, sets, dicts, functions) |
+| Native compilation | ✅ Working, via `clang`/`llc` on the emitted `.ll` file |
+| Standard library | 🚧 `write` / `writeln` only |
+| Package manager | 📋 Planned, not started |
+
+See [Architecture](docs/architecture.md) for how the pieces fit together, and [Syntax Reference](docs/syntax.md) for exactly what the language supports right now, including a few rough edges that are still being ironed out.
+
+## A Taste of Cylixin
+
+```cylixin
+fun add(a: int, b: int): int then
+    return a + b;
+endfun
+
+var result: int = @add(3, 7);
+@writeln(result);
+
+var total: int = 0;
+for i from 0 to 5 then
+    total += i;
+endfor
+
+if total > 5 then
+    @writeln("Sum is big!");
+elif total > 3 then
+    @writeln("Sum is medium.");
+else
+    @writeln("Sum is small.");
+endif
+
+var nums: arr<int> = [10, 20, 30];
+nums[1] = 99;
+@writeln(nums[1]);
+```
+
+More constructs (labelled loops, the `endif when` / `endfor when` conditional-exit feature, sets, dictionaries, and more) are covered in the [Syntax Reference](docs/syntax.md).
+
+## Getting Started
+
+### Prerequisites
+
+* [Rust](https://www.rust-lang.org/tools/install) (stable toolchain, 2021 edition)
+* LLVM 15 development libraries (the `llvm15-0` feature of `inkwell` is pinned in `Cargo.toml`)
+* `clang` (or `llc` plus a linker) to turn the emitted LLVM IR into a native binary
+
+### Build the compiler
+
+```bash
+git clone https://github.com/cylixin/cylixin.git
+cd cylixin/cylixin_compiler
+cargo build --release
+```
+
+### Run it
+
+The compiler currently takes its source from a hardcoded string in `src/main.rs` rather than a file argument. That's the first thing to change as the CLI matures; see [Contributing](CONTRIBUTING.md) if you'd like to help. To try it out:
+
+```bash
+cargo run
+```
+
+This lexes, parses, and compiles the sample program in `main.rs`, writing the result to `output.ll` in the working directory. Turn that into an executable with:
+
+```bash
+clang output.ll cylixin_compiler/runtime.c -o program -lm
+./program
+```
+
+`runtime.c` provides the small C runtime backing sets and dictionaries (hash-table implementations for `cy_set`/`cy_dict`), and it's linked in alongside the generated IR.
+
+To experiment with your own program, edit the `source` string in `src/main.rs` and re-run `cargo run`.
+
+## Repository Layout
+
+```
+cylixin/
+├── cylixin_compiler/       # The compiler (Rust)
+│   ├── src/
+│   │   ├── lexer/          # Source text to tokens
+│   │   ├── ast/            # AST node definitions
+│   │   ├── parser/         # Tokens to AST
+│   │   ├── codegen/        # AST to LLVM IR (via inkwell)
+│   │   └── main.rs         # Entry point / demo program
+│   └── runtime.c           # C runtime for sets & dicts
+├── docs/
+│   ├── design_principles.md
+│   ├── syntax.md
+│   └── architecture.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+└── LICENSE
+```
 
 ## Contributing
 
-We welcome interest and ideas from the community! If you're passionate about new programming languages and have insights to share, please open issues to discuss potential features, design considerations (as outlined in our [Design Principles](docs/design_principles.md)), or areas for improvement.
-
-For more detailed guidelines on how you can contribute, please see our [CONTRIBUTING.md](CONTRIBUTING.md) file.
+Contributions are very welcome, especially given how early-stage this project is: there's a lot of surface area to help with, from closing gaps in the type system to writing the first standard library modules. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved, and open an issue before starting on anything substantial so we can align on direction.
 
 ## Community
 
-Join the discussion and stay updated on Cylixin's development on our [Discord](https://discord.gg/CJ2tsXu59f), [Instagram](https://www.instagram.com/cylixin) and [GitHub](https://github.com/cylixin). Information on our community forum and other channels will be shared here as they become available.
+* [Discord](https://discord.gg/CJ2tsXu59f)
+* [Instagram](https://www.instagram.com/cylixin)
+* [GitHub](https://github.com/cylixin)
 
 ## License
 
 Cylixin is licensed under the [MIT License](LICENSE).
-
-## Stay Updated
-
-* Follow this repository for development updates.
-* Follow us on [Instagram](https://www.instagram.com/cylixin) and [GitHub](https://github.com/cylixin).
-
----
-
-Thank you for your interest in Cylixin! We're excited about the journey ahead.
