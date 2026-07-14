@@ -306,19 +306,21 @@ impl<'ctx> Compiler<'ctx> {
             Stmt::ExprStmt(expr) => { self.compile_expr(expr)?; Ok(()) }
             Stmt::If { condition, then_body, elif_arms, else_body, end_when } => {
                 self.compile_if(condition, then_body, elif_arms, else_body)?;
-                self.compile_end_when(end_when)
+                // on `if` blocks, when still does a function return (guard pattern)
+                self.compile_end_when(end_when, None)
             }
             Stmt::ForRange { var, from, to, body, label, end_when } => {
-                self.compile_for_range(var, from, to, body, label)?;
-                self.compile_end_when(end_when)
+                let exit_bb = self.compile_for_range(var, from, to, body, label)?;
+                // on loops, when breaks out of the loop instead of returning
+                self.compile_end_when(end_when, Some(exit_bb))
             }
             Stmt::ForC { init, cond, update, body, label, end_when } => {
-                self.compile_for_c(init, cond, update, body, label)?;
-                self.compile_end_when(end_when)
+                let exit_bb = self.compile_for_c(init, cond, update, body, label)?;
+                self.compile_end_when(end_when, Some(exit_bb))
             }
             Stmt::While { condition, body, label, end_when } => {
-                self.compile_while(condition, body, label)?;
-                self.compile_end_when(end_when)
+                let exit_bb = self.compile_while(condition, body, label)?;
+                self.compile_end_when(end_when, Some(exit_bb))
             }
             Stmt::FunDecl { name, params, return_type, body } => {
                 self.compile_fun_decl(name, params, return_type, body)
@@ -512,7 +514,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     fn compile_for_range(&mut self, var: &str, from: &Expr, to: &Expr, body: &[Stmt], label: &Option<String>)
-        -> Result<(), CodegenError>
+        -> Result<BasicBlock<'ctx>, CodegenError>
     {
         let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
         let (from_val, _) = self.compile_expr(from)?;
@@ -561,11 +563,11 @@ impl<'ctx> Compiler<'ctx> {
         }
 
         self.builder.position_at_end(exit_bb);
-        Ok(())
+        Ok(exit_bb)
     }
 
     fn compile_for_c(&mut self, init: &Stmt, cond: &Expr, update: &Stmt, body: &[Stmt], label: &Option<String>)
-        -> Result<(), CodegenError>
+        -> Result<BasicBlock<'ctx>, CodegenError>
     {
         let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
         self.compile_stmt(init)?;
@@ -594,11 +596,11 @@ impl<'ctx> Compiler<'ctx> {
         }
 
         self.builder.position_at_end(exit_bb);
-        Ok(())
+        Ok(exit_bb)
     }
 
     fn compile_while(&mut self, condition: &Expr, body: &[Stmt], label: &Option<String>)
-        -> Result<(), CodegenError>
+        -> Result<BasicBlock<'ctx>, CodegenError>
     {
         let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
         let header_bb = self.context.append_basic_block(parent, "while_header");
@@ -624,7 +626,7 @@ impl<'ctx> Compiler<'ctx> {
         }
 
         self.builder.position_at_end(exit_bb);
-        Ok(())
+        Ok(exit_bb)
     }
 
     fn compile_fun_decl(&mut self, name: &str, params: &[Param], _return_type: &Option<CyType>, body: &[Stmt])
@@ -712,12 +714,15 @@ impl<'ctx> Compiler<'ctx> {
 
     /// Emits the `end_when` guard after a block exits.
     ///
-    /// Syntax: `endif when (cond): value`
+    /// Syntax: `endif when (cond): value;`  or  `endfor when (cond): value;`
     ///
-    /// Semantics: if `cond` is true at the block's exit point,
-    /// immediately return `value` from the enclosing function.
-    /// Otherwise fall through to the next statement.
-    fn compile_end_when(&mut self, end_when: &Option<EndWhen>) -> Result<(), CodegenError> {
+    /// Semantics depend on context:
+    /// - **`if` blocks** (loop_exit = None): if `cond` is true, return `value`
+    ///   from the enclosing function (guard pattern).
+    /// - **Loop blocks** (loop_exit = Some(bb)): if `cond` is true, break out of
+    ///   the loop. The value expression is still evaluated (for side effects)
+    ///   but the loop simply exits — no function return.
+    fn compile_end_when(&mut self, end_when: &Option<EndWhen>, loop_exit: Option<BasicBlock<'ctx>>) -> Result<(), CodegenError> {
         let ew = match end_when {
             Some(ew) => ew,
             None => return Ok(()), // nothing to do
@@ -731,7 +736,7 @@ impl<'ctx> Compiler<'ctx> {
         // evaluate the guard condition
         let (cond_val, _) = self.compile_expr(&ew.condition)?;
 
-        // two destinations: early-return block vs fall-through block
+        // two destinations: early-exit block vs fall-through block
         let early_bb    = self.context.append_basic_block(parent, "endwhen_early");
         let continue_bb = self.context.append_basic_block(parent, "endwhen_cont");
 
@@ -739,12 +744,27 @@ impl<'ctx> Compiler<'ctx> {
             .build_conditional_branch(cond_val.into_int_value(), early_bb, continue_bb)
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
-        // early-return path: evaluate value and return it
+        // early-exit path
         self.builder.position_at_end(early_bb);
+        // always evaluate the value expression (for side effects / consistency)
         let (ret_val, _) = self.compile_expr(&ew.value)?;
-        self.builder
-            .build_return(Some(&ret_val))
-            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+        match loop_exit {
+            Some(exit_bb) => {
+                // Loop context: break out of the loop (don't return from function)
+                // The when-value is evaluated but discarded — the loop just exits.
+                let _ = ret_val;
+                self.builder
+                    .build_unconditional_branch(exit_bb)
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+            }
+            None => {
+                // If-block context: return the value from the enclosing function
+                self.builder
+                    .build_return(Some(&ret_val))
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+            }
+        }
 
         // fall-through path: continue normal execution
         self.builder.position_at_end(continue_bb);
