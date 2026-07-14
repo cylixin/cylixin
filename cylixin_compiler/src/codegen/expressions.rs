@@ -229,14 +229,14 @@ impl<'ctx> Compiler<'ctx> {
 
 
     /// Converts any value to an i64 for uniform storage in array slots.
-    fn value_to_i64_slot(&self, val: &BasicValueEnum<'ctx>, ty: &CyType)
+    pub(crate) fn value_to_i64_slot(&self, val: &BasicValueEnum<'ctx>, ty: &CyType)
         -> Result<inkwell::values::IntValue<'ctx>, CodegenError>
     {
         let i64_type = self.context.i64_type();
         match ty {
             CyType::Int | CyType::Long => Ok(val.into_int_value()),
             CyType::Float => {
-                self.builder.build_bitcast(*val, i64_type, "f2i")
+                self.builder.build_bit_cast(*val, i64_type, "f2i")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))
                     .map(|v| v.into_int_value())
             }
@@ -257,14 +257,14 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Converts an i64 slot value back to the expected element type.
-    fn i64_slot_to_value(&self, raw: BasicValueEnum<'ctx>, ty: &CyType)
+    pub(crate) fn i64_slot_to_value(&self, raw: BasicValueEnum<'ctx>, ty: &CyType)
         -> Result<BasicValueEnum<'ctx>, CodegenError>
     {
         let i64_type = self.context.i64_type();
         match ty {
             CyType::Int | CyType::Long => Ok(raw),
             CyType::Float => {
-                self.builder.build_bitcast(raw, self.context.f64_type(), "i2f")
+                self.builder.build_bit_cast(raw, self.context.f64_type(), "i2f")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))
             }
             CyType::Bool => {
