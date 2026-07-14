@@ -188,6 +188,8 @@ fn cmd_build(args: &[String]) {
     print!("  → Linking with clang...");
     let status = Command::new("clang")
         .args([
+            "-Wno-override-module",
+            "-mllvm", "-opaque-pointers",
             &ir_path,
             &runtime_path.to_string_lossy().to_string(),
             "-o",
