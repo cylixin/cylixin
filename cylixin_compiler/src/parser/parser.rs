@@ -329,7 +329,8 @@ impl Parser {
     }
 
     // Expression parsing - precedence layers from lowest to highest:
-    //   or → and → equality → comparison → add → mul → pow → unary → call/index → primary
+    //   or → and → bitwise_or → bitwise_and → equality → comparison
+    //   → shift → add → mul → pow → unary → call/index → primary
 
     fn parse_expression(&mut self) -> Result<Expr, ParseError> {
         self.parse_or()
@@ -365,11 +366,31 @@ impl Parser {
     }
 
     fn parse_and(&mut self) -> Result<Expr, ParseError> {
-        let mut left = self.parse_equality()?;
+        let mut left = self.parse_bitwise_or()?;
         while self.check(&TokenKind::AmpAmp) {
             self.advance();
-            let right = self.parse_equality()?;
+            let right = self.parse_bitwise_or()?;
             left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::And, right: Box::new(right) };
+        }
+        Ok(left)
+    }
+
+    fn parse_bitwise_or(&mut self) -> Result<Expr, ParseError> {
+        let mut left = self.parse_bitwise_and()?;
+        while self.check(&TokenKind::Pipe) {
+            self.advance();
+            let right = self.parse_bitwise_and()?;
+            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::BitOr, right: Box::new(right) };
+        }
+        Ok(left)
+    }
+
+    fn parse_bitwise_and(&mut self) -> Result<Expr, ParseError> {
+        let mut left = self.parse_equality()?;
+        while self.check(&TokenKind::Amp) {
+            self.advance();
+            let right = self.parse_equality()?;
+            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::BitAnd, right: Box::new(right) };
         }
         Ok(left)
     }
@@ -391,13 +412,28 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Result<Expr, ParseError> {
-        let mut left = self.parse_additive()?;
+        let mut left = self.parse_shift()?;
         loop {
             let op = match self.peek_kind() {
                 TokenKind::Less      => BinaryOp::Lt,
                 TokenKind::Greater   => BinaryOp::Gt,
                 TokenKind::LessEq    => BinaryOp::LtEq,
                 TokenKind::GreaterEq => BinaryOp::GtEq,
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_shift()?;
+            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+        }
+        Ok(left)
+    }
+
+    fn parse_shift(&mut self) -> Result<Expr, ParseError> {
+        let mut left = self.parse_additive()?;
+        loop {
+            let op = match self.peek_kind() {
+                TokenKind::LeftShift  => BinaryOp::Shl,
+                TokenKind::RightShift => BinaryOp::Shr,
                 _ => break,
             };
             self.advance();
@@ -586,21 +622,25 @@ impl Parser {
 
     fn peek_binary_op(&self) -> Option<(BinaryOp, u8)> {
         match self.peek_kind() {
-            TokenKind::PipePipe  => Some((BinaryOp::Or,       1)),
-            TokenKind::AmpAmp    => Some((BinaryOp::And,      2)),
-            TokenKind::EqEqEq    => Some((BinaryOp::StrictEq, 3)),
-            TokenKind::EqEq      => Some((BinaryOp::Eq,       3)),
-            TokenKind::BangEq    => Some((BinaryOp::NotEq,    3)),
-            TokenKind::Less      => Some((BinaryOp::Lt,       4)),
-            TokenKind::Greater   => Some((BinaryOp::Gt,       4)),
-            TokenKind::LessEq    => Some((BinaryOp::LtEq,     4)),
-            TokenKind::GreaterEq => Some((BinaryOp::GtEq,     4)),
-            TokenKind::Plus      => Some((BinaryOp::Add,      5)),
-            TokenKind::Minus     => Some((BinaryOp::Sub,      5)),
-            TokenKind::Star      => Some((BinaryOp::Mul,      6)),
-            TokenKind::Slash     => Some((BinaryOp::Div,      6)),
-            TokenKind::Percent   => Some((BinaryOp::Mod,      6)),
-            TokenKind::StarStar  => Some((BinaryOp::Pow,      7)),
+            TokenKind::PipePipe   => Some((BinaryOp::Or,       1)),
+            TokenKind::AmpAmp     => Some((BinaryOp::And,      2)),
+            TokenKind::Pipe       => Some((BinaryOp::BitOr,    3)),
+            TokenKind::Amp        => Some((BinaryOp::BitAnd,   4)),
+            TokenKind::EqEqEq     => Some((BinaryOp::StrictEq, 5)),
+            TokenKind::EqEq       => Some((BinaryOp::Eq,       5)),
+            TokenKind::BangEq     => Some((BinaryOp::NotEq,    5)),
+            TokenKind::Less       => Some((BinaryOp::Lt,       6)),
+            TokenKind::Greater    => Some((BinaryOp::Gt,       6)),
+            TokenKind::LessEq     => Some((BinaryOp::LtEq,     6)),
+            TokenKind::GreaterEq  => Some((BinaryOp::GtEq,     6)),
+            TokenKind::LeftShift  => Some((BinaryOp::Shl,      7)),
+            TokenKind::RightShift => Some((BinaryOp::Shr,      7)),
+            TokenKind::Plus       => Some((BinaryOp::Add,      8)),
+            TokenKind::Minus      => Some((BinaryOp::Sub,      8)),
+            TokenKind::Star       => Some((BinaryOp::Mul,      9)),
+            TokenKind::Slash      => Some((BinaryOp::Div,      9)),
+            TokenKind::Percent    => Some((BinaryOp::Mod,      9)),
+            TokenKind::StarStar   => Some((BinaryOp::Pow,     10)),
             _ => None,
         }
     }
