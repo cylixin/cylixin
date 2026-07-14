@@ -449,6 +449,27 @@ impl<'ctx> Compiler<'ctx> {
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 Ok((r.into(), CyType::Bool))
             }
+            // bitwise operators
+            (CyType::Int | CyType::Long, BinaryOp::BitAnd) => {
+                let r = self.builder.build_and(lv.into_int_value(), rv.into_int_value(), "bitand")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                Ok((r.into(), lt))
+            }
+            (CyType::Int | CyType::Long, BinaryOp::BitOr) => {
+                let r = self.builder.build_or(lv.into_int_value(), rv.into_int_value(), "bitor")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                Ok((r.into(), lt))
+            }
+            (CyType::Int | CyType::Long, BinaryOp::Shl) => {
+                let r = self.builder.build_left_shift(lv.into_int_value(), rv.into_int_value(), "shl")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                Ok((r.into(), lt))
+            }
+            (CyType::Int | CyType::Long, BinaryOp::Shr) => {
+                let r = self.builder.build_right_shift(lv.into_int_value(), rv.into_int_value(), true, "shr")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                Ok((r.into(), lt))
+            }
             // exponentiation — call C's pow(f64, f64) -> f64
             (CyType::Int | CyType::Long, BinaryOp::Pow) => {
                 let pow_fn = self.module.get_function("pow")

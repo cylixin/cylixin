@@ -20,7 +20,7 @@ pub enum BinaryOp {
     Eq, StrictEq, NotEq,
     Lt, Gt, LtEq, GtEq,
     And, Or,
-    BitAnd, BitOr, Shl, Shr,  // TODO: implement in interpreter
+    BitAnd, BitOr, Shl, Shr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
