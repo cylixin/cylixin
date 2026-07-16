@@ -128,7 +128,6 @@ Contributions are very welcome, especially given how early-stage this project is
 
 ## Community
 
-* [Discord](https://discord.gg/CJ2tsXu59f)
 * [Instagram](https://www.instagram.com/cylixin)
 * [GitHub](https://github.com/cylixin)
 
