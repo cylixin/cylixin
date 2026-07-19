@@ -24,7 +24,7 @@ calculate_area
 
 The current lexer reserves the following words:
 
-`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `write`, `writeln`.
+`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
 
 Note the string type keyword is `string`, not `strg`. There is no `continue` keyword; see [Known Limitations](#known-limitations) for how early loop exits work today.
 
@@ -41,9 +41,9 @@ endif
 * **Comparison:** `==`, `===` (strict, meaning both value and type must match), `!=`, `>`, `<`, `>=`, `<=`
 * **Logical:** `&&`, `||`, `!`
 * **Assignment:** `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `**=`
-* **Bitwise (lexed only, not yet usable in expressions):** `&`, `|`, `<<`, `>>`. See [Known Limitations](#known-limitations).
+* **Bitwise:** `&`, `|`, `<<`, `>>`
 
-Precedence, from lowest to highest: `||`, then `&&`, then equality (`==`, `===`, `!=`), then comparison (`<`, `>`, `<=`, `>=`), then additive (`+`, `-`), then multiplicative (`*`, `/`, `%`), then `**`, then unary (`!`, `-`), then calls/indexing, then primary expressions.
+Precedence, from lowest to highest: `||`, then `&&`, then `|`, then `&`, then equality (`==`, `===`, `!=`), then comparison (`<`, `>`, `<=`, `>=`), then bitwise shifts (`<<`, `>>`), then additive (`+`, `-`), then multiplicative (`*`, `/`, `%`), then `**`, then unary (`!`, `-`), then calls/indexing, then primary expressions.
 
 #### Delimiters and Special Symbols
 
@@ -261,15 +261,27 @@ endfun
 
 `return;` with no expression implicitly returns `null`.
 
-### Printing
+### I/O (Printing and Input)
 
 ```cylixin
+// Printing
 write("Welcome to Cylixin!");
 writeln("Hello, ", name); // writeln appends a newline
 write("Error code: " + error); // string concatenation with '+'
+
+// Input (type-directed)
+let age: int     = @read("Enter age: ");
+let name: string = @read("Name: ");
+let gpa: float   = @read("GPA: ");
+let ok: bool     = @read("Continue? ");
+let ch: char     = @read("Press key: ");
 ```
 
-`write`/`writeln` are built-in functions, called like any other with `@`, so `@write(...)`/`@writeln(...)`. They currently render `int`, `long`, `float`, `bool`, `char`, and `string` values. Arrays, sets, and dictionaries can be passed but currently print as a raw pointer value rather than their contents; formatted container output is on the roadmap.
+`write`/`writeln` and `read` are built-in functions, called like any other with `@`. 
+
+**Printing:** `write`/`writeln` currently render `int`, `long`, `float`, `bool`, `char`, and `string` values. Arrays, sets, and dictionaries can be passed but currently print as a raw pointer value rather than their contents.
+
+**Input:** `@read("prompt")` displays a prompt and waits for user input from standard in. The function it calls internally is determined by the **expected type** (the variable's type annotation). If the user enters invalid input for the type (e.g. typing "hello" for an `int`), the runtime prints an error and re-prompts automatically without crashing. The prompt string argument is required.
 
 ## Expressions
 
@@ -289,7 +301,6 @@ These are gaps between the language as designed and the language as currently im
 
 * **`when` clause semantics are not yet unified across block types.** Today, `endif when`, `endfor when`, and `endwhile when` all compile to the same thing: an early `return value` from the enclosing function. The originally intended behavior, where `endfor`/`endwhile when` acted like a conditional labelled `break` and only `endfun when` returned from the function, has not been implemented yet.
 * **`endfun when (...): value;` is currently a no-op.** The parser accepts the clause on a function body, but the value and condition are discarded during code generation; a function ending this way behaves as if the clause weren't written at all.
-* **Bitwise operators are lexed but not parseable as expressions.** `&`, `|`, `<<`, and `>>` are recognized tokens, but the expression parser doesn't yet have a precedence rule for them, so they can't currently be used in code.
 * **`dic<K, V>` two-parameter generics aren't parsed from a type annotation.** The type-annotation grammar for `dic` currently accepts a single generic argument; a comma-separated key/value pair (e.g. `dic<int, int>`) in an annotation is not yet supported. Dictionary literals themselves (`{1: 10, 2: 20}`) work regardless of how the variable is annotated.
 * **The `empty` keyword is reserved but not yet usable.** It's recognized by the lexer but has no meaning in the parser or codegen yet (there's no `!empty` either).
 * **No `continue` statement.** Only `break` (with the labelled early-exit `when` caveat above) is available for altering loop flow from inside the loop body.
