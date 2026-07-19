@@ -6,9 +6,11 @@
  * Keys and values are stored as int64_t (same boxing scheme as arrays).
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 
 /* ── Hash table entry ─────────────────────────────────────────────── */
 
@@ -143,4 +145,95 @@ void cy_set_remove(CySet *s, int64_t key) {
 
 int64_t cy_set_size(CySet *s) {
     return cy_dict_size(s);
+}
+
+/* ── cy_read — type-directed input from stdin ────────────────────── */
+
+#define CY_READ_BUF 256
+
+int64_t cy_read_int(const char *prompt) {
+    char buf[CY_READ_BUF];
+    while (1) {
+        printf("%s", prompt);
+        fflush(stdout);
+        if (fgets(buf, CY_READ_BUF, stdin) == NULL) {
+            fprintf(stderr, "\nError: unexpected end of input while reading int\n");
+            exit(1);
+        }
+        buf[strcspn(buf, "\n")] = '\0';
+        char *end;
+        errno = 0;
+        long long val = strtoll(buf, &end, 10);
+        if (end != buf && *end == '\0' && errno == 0) {
+            return (int64_t)val;
+        }
+        fprintf(stderr, "  \xe2\x9c\x97 Expected an integer, got '%s'. Try again.\n", buf);
+    }
+}
+
+double cy_read_float(const char *prompt) {
+    char buf[CY_READ_BUF];
+    while (1) {
+        printf("%s", prompt);
+        fflush(stdout);
+        if (fgets(buf, CY_READ_BUF, stdin) == NULL) {
+            fprintf(stderr, "\nError: unexpected end of input while reading float\n");
+            exit(1);
+        }
+        buf[strcspn(buf, "\n")] = '\0';
+        char *end;
+        errno = 0;
+        double val = strtod(buf, &end);
+        if (end != buf && *end == '\0' && errno == 0) {
+            return val;
+        }
+        fprintf(stderr, "  \xe2\x9c\x97 Expected a number, got '%s'. Try again.\n", buf);
+    }
+}
+
+char *cy_read_str(const char *prompt) {
+    char buf[CY_READ_BUF];
+    printf("%s", prompt);
+    fflush(stdout);
+    if (fgets(buf, CY_READ_BUF, stdin) == NULL) {
+        fprintf(stderr, "\nError: unexpected end of input while reading string\n");
+        exit(1);
+    }
+    buf[strcspn(buf, "\n")] = '\0';
+    char *result = (char *)malloc(strlen(buf) + 1);
+    strcpy(result, buf);
+    return result;
+}
+
+int64_t cy_read_bool(const char *prompt) {
+    char buf[CY_READ_BUF];
+    while (1) {
+        printf("%s", prompt);
+        fflush(stdout);
+        if (fgets(buf, CY_READ_BUF, stdin) == NULL) {
+            fprintf(stderr, "\nError: unexpected end of input while reading bool\n");
+            exit(1);
+        }
+        buf[strcspn(buf, "\n")] = '\0';
+        if (strcmp(buf, "true") == 0 || strcmp(buf, "1") == 0)  return 1;
+        if (strcmp(buf, "false") == 0 || strcmp(buf, "0") == 0) return 0;
+        fprintf(stderr, "  \xe2\x9c\x97 Expected true or false, got '%s'. Try again.\n", buf);
+    }
+}
+
+int8_t cy_read_char(const char *prompt) {
+    char buf[CY_READ_BUF];
+    while (1) {
+        printf("%s", prompt);
+        fflush(stdout);
+        if (fgets(buf, CY_READ_BUF, stdin) == NULL) {
+            fprintf(stderr, "\nError: unexpected end of input while reading char\n");
+            exit(1);
+        }
+        buf[strcspn(buf, "\n")] = '\0';
+        if (strlen(buf) == 1) {
+            return (int8_t)buf[0];
+        }
+        fprintf(stderr, "  \xe2\x9c\x97 Expected a single character, got '%s'. Try again.\n", buf);
+    }
 }
