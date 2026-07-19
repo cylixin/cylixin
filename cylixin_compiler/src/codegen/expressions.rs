@@ -534,6 +534,55 @@ impl<'ctx> Compiler<'ctx> {
         -> Result<(BasicValueEnum<'ctx>, CyType), CodegenError>
     {
         match name {
+            "read" => {
+                // Compile the prompt argument (must be exactly one string arg)
+                if args.len() != 1 {
+                    return Err(CodegenError::Unsupported(
+                        "@read requires exactly one argument (the prompt string)".into(),
+                    ));
+                }
+                let (prompt_val, prompt_ty) = self.compile_expr(&args[0])?;
+                if prompt_ty != CyType::StringType {
+                    return Err(CodegenError::Unsupported(
+                        "@read prompt must be a string".into(),
+                    ));
+                }
+
+                // Determine which runtime function to call based on target type
+                let target_ty = self.read_target_type.as_ref().unwrap_or(&CyType::StringType);
+                let (func_name, ret_ty) = match target_ty {
+                    CyType::Int | CyType::Long => ("cy_read_int", target_ty.clone()),
+                    CyType::Float              => ("cy_read_float", CyType::Float),
+                    CyType::StringType         => ("cy_read_str", CyType::StringType),
+                    CyType::Bool               => ("cy_read_bool", CyType::Bool),
+                    CyType::Char               => ("cy_read_char", CyType::Char),
+                    other => return Err(CodegenError::Unsupported(
+                        format!("@read does not support type {:?} — add a type annotation (int, float, string, bool, char)", other),
+                    )),
+                };
+
+                let func = self.module.get_function(func_name)
+                    .ok_or_else(|| CodegenError::UndefinedFunction(func_name.into()))?;
+                let call = self.builder.build_call(func, &[prompt_val.into()], "read_call")
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+                match call.try_as_basic_value() {
+                    inkwell::values::ValueKind::Basic(v) => {
+                        // cy_read_bool returns i64 (0/1); truncate to i1 for CyType::Bool
+                        if ret_ty == CyType::Bool {
+                            let truncated = self.builder.build_int_truncate(
+                                v.into_int_value(),
+                                self.context.bool_type(),
+                                "bool_trunc",
+                            ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+                            Ok((truncated.into(), CyType::Bool))
+                        } else {
+                            Ok((v, ret_ty))
+                        }
+                    }
+                    _ => Err(CodegenError::LLVMError("read function returned no value".into())),
+                }
+            }
             "write" | "writeln" => {
                 let newline = name == "writeln";
                 for arg in args {

@@ -39,6 +39,9 @@ pub struct Compiler<'ctx> {
     pub(crate) variables: HashMap<String, (PointerValue<'ctx>, CyType)>,
     pub(crate) functions: HashMap<String, (FunctionValue<'ctx>, Option<CyType>)>,
     loop_stack: Vec<LoopContext<'ctx>>,
+    /// Set temporarily before compiling an expression so that type-directed
+    /// builtins like `@read()` know what type to return.
+    pub(crate) read_target_type: Option<CyType>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -50,6 +53,7 @@ impl<'ctx> Compiler<'ctx> {
             variables: HashMap::new(),
             functions: HashMap::new(),
             loop_stack: Vec::new(),
+            read_target_type: None,
         }
     }
 
@@ -58,6 +62,7 @@ impl<'ctx> Compiler<'ctx> {
         self.declare_pow();
         self.declare_string_funcs();
         self.declare_collection_funcs();
+        self.declare_read_funcs();
 
         // first pass: declare all functions so they can call each other
         for stmt in &program.body {
@@ -164,6 +169,33 @@ impl<'ctx> Compiler<'ctx> {
         self.module.add_function("cy_set_size", set_size_ty, Some(inkwell::module::Linkage::External));
     }
 
+    fn declare_read_funcs(&self) {
+        let i64_type = self.context.i64_type();
+        let f64_type = self.context.f64_type();
+        let i8_type  = self.context.i8_type();
+        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+
+        // cy_read_int(prompt: *const i8) -> i64
+        let ty = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_read_int", ty, Some(inkwell::module::Linkage::External));
+
+        // cy_read_float(prompt: *const i8) -> f64
+        let ty = f64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_read_float", ty, Some(inkwell::module::Linkage::External));
+
+        // cy_read_str(prompt: *const i8) -> *i8
+        let ty = ptr_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_read_str", ty, Some(inkwell::module::Linkage::External));
+
+        // cy_read_bool(prompt: *const i8) -> i64 (0 or 1)
+        let ty = i64_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_read_bool", ty, Some(inkwell::module::Linkage::External));
+
+        // cy_read_char(prompt: *const i8) -> i8
+        let ty = i8_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_read_char", ty, Some(inkwell::module::Linkage::External));
+    }
+
     fn declare_function(&mut self, name: &str, params: &[Param], return_type: &Option<CyType>)
         -> Result<(), CodegenError>
     {
@@ -220,7 +252,10 @@ impl<'ctx> Compiler<'ctx> {
                 let ptr = self.builder.build_alloca(llvm_ty, name)
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 if let Some(init) = initialiser {
+                    // set expected type so @read() can dispatch
+                    self.read_target_type = type_ann.clone();
                     let (val, inferred_ty) = self.compile_expr(init)?;
+                    self.read_target_type = None;
                     self.builder.build_store(ptr, val)
                         .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                     // use the inferred type if no annotation
@@ -232,7 +267,23 @@ impl<'ctx> Compiler<'ctx> {
                 Ok(())
             }
             Stmt::Assign { target, op, value } => {
+                // set expected type from variable for @read() dispatch
+                let target_ty = match target {
+                    AssignTarget::Ident(name) => {
+                        self.variables.get(name).map(|(_, ty)| ty.clone())
+                    }
+                    AssignTarget::Index { name, .. } => {
+                        self.variables.get(name).and_then(|(_, ty)| {
+                            match ty {
+                                CyType::Arr(Some(inner)) => Some(*inner.clone()),
+                                _ => None,
+                            }
+                        })
+                    }
+                };
+                self.read_target_type = target_ty;
                 let (val, _) = self.compile_expr(value)?;
+                self.read_target_type = None;
                 match target {
                     AssignTarget::Ident(name) => {
                         let (ptr, ty) = self.variables.get(name)

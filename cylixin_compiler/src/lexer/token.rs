@@ -81,6 +81,7 @@ pub enum TokenKind {
     Empty,
 
     // built-in i/o, called with @ like any other function
+    Read,
     Write,
     Writeln,
 
@@ -172,6 +173,7 @@ impl TokenKind {
             "true"     => Some(TokenKind::BoolLiteral(true)),
             "false"    => Some(TokenKind::BoolLiteral(false)),
             "empty"    => Some(TokenKind::Empty),
+            "read"     => Some(TokenKind::Read),
             "write"    => Some(TokenKind::Write),
             "writeln"  => Some(TokenKind::Writeln),
             _          => None,

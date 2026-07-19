@@ -745,6 +745,7 @@ impl Parser {
         let tok = self.peek().clone();
         let name = match &tok.kind {
             TokenKind::Identifier(n) => n.clone(),
+            TokenKind::Read          => "read".into(),
             TokenKind::Write         => "write".into(),
             TokenKind::Writeln       => "writeln".into(),
             _ => return Err(ParseError::UnexpectedToken {
