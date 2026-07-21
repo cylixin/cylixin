@@ -86,7 +86,7 @@ impl<'ctx> Compiler<'ctx> {
         };
 
         // Cast to i64* for convenient GEP
-        let i64_ptr = self.builder.build_pointer_cast(raw_ptr, i64_type.ptr_type(inkwell::AddressSpace::default()), "arr_i64ptr")
+        let i64_ptr = self.builder.build_pointer_cast(raw_ptr, self.context.ptr_type(inkwell::AddressSpace::default()), "arr_i64ptr")
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
         // Store length at slot 0
@@ -129,7 +129,7 @@ impl<'ctx> Compiler<'ctx> {
 
                 let i64_ptr = self.builder.build_pointer_cast(
                     coll_val.into_pointer_value(),
-                    i64_type.ptr_type(inkwell::AddressSpace::default()),
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
                     "arr_i64ptr"
                 ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
@@ -278,7 +278,7 @@ impl<'ctx> Compiler<'ctx> {
                 Ok(trunc.into())
             }
             CyType::StringType | CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
-                let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let ptr = self.builder.build_int_to_ptr(raw.into_int_value(), ptr_type, "i2p")
                     .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                 Ok(ptr.into())
