@@ -1,2 +1,2 @@
 pub mod parser;
-pub use parser::{Parser, ParseError};
+pub use parser::Parser;

@@ -3,7 +3,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue, BasicMetadataValueEnum};
+use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 use inkwell::basic_block::BasicBlock;
 use inkwell::IntPredicate;
 use crate::ast::*;
@@ -99,7 +99,7 @@ impl<'ctx> Compiler<'ctx> {
 
     fn declare_printf(&self) {
         let i32_type = self.context.i32_type();
-        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let printf_type = i32_type.fn_type(&[ptr_type.into()], true);
         self.module.add_function("printf", printf_type, Some(inkwell::module::Linkage::External));
     }
@@ -112,7 +112,7 @@ impl<'ctx> Compiler<'ctx> {
 
     fn declare_string_funcs(&self) {
         let i64_type = self.context.i64_type();
-        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
         let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
         self.module.add_function("malloc", malloc_type, Some(inkwell::module::Linkage::External));
@@ -129,7 +129,7 @@ impl<'ctx> Compiler<'ctx> {
 
     fn declare_collection_funcs(&self) {
         let i64_type = self.context.i64_type();
-        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let void_type = self.context.void_type();
 
         // cy_dict_new() -> ptr
@@ -173,7 +173,7 @@ impl<'ctx> Compiler<'ctx> {
         let i64_type = self.context.i64_type();
         let f64_type = self.context.f64_type();
         let i8_type  = self.context.i8_type();
-        let ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
         // cy_read_int(prompt: *const i8) -> i64
         let ty = i64_type.fn_type(&[ptr_type.into()], false);
@@ -222,10 +222,10 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Float => self.context.f64_type().into(),
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
-            CyType::StringType => self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into(),
+            CyType::StringType => self.context.ptr_type(inkwell::AddressSpace::default()).into(),
             // Arrays (and future Set/Dic) are opaque pointers to heap-allocated blocks
             CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
-                self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()
+                self.context.ptr_type(inkwell::AddressSpace::default()).into()
             }
             _ => self.context.i64_type().into(),
         }
@@ -238,7 +238,7 @@ impl<'ctx> Compiler<'ctx> {
             CyType::Bool => self.context.bool_type().into(),
             CyType::Char => self.context.i8_type().into(),
             CyType::StringType | CyType::Arr(_) | CyType::Set(_) | CyType::Dic(_, _) => {
-                self.context.i8_type().ptr_type(inkwell::AddressSpace::default()).into()
+                self.context.ptr_type(inkwell::AddressSpace::default()).into()
             }
             _ => self.context.i64_type().into(),
         }
@@ -314,11 +314,11 @@ impl<'ctx> Compiler<'ctx> {
                         };
 
                         let i64_type = self.context.i64_type();
-                        let ptr_type = i64_type.ptr_type(inkwell::AddressSpace::default());
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
 
                         // Load the array base pointer (i8*), cast to i64*
                         let base = self.builder.build_load(
-                            self.context.i8_type().ptr_type(inkwell::AddressSpace::default()),
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
                             arr_ptr, "arr_base"
                         ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 

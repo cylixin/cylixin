@@ -23,6 +23,7 @@ impl Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum TokenKind {
     // literals
     IntLiteral(i64),
