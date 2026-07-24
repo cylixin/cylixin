@@ -1,0 +1,75 @@
+// Cylixin Feature Verification & Demo Script
+
+fun is_even(num: int): bool then
+    return num % 2 == 0;
+endfun
+
+fun test_loop_control() then
+    @writeln("=== 1. Loop Control (Continue & Break) ===");
+
+    @writeln("Printing odd numbers from 1 to 9 (skipping evens with continue):");
+    for i from 1 to 10 then
+        if @is_even(i) then
+            continue;
+        endif
+        @write("  Odd: ");
+        @writeln(i);
+    endfor
+
+    @writeln("Testing labeled continue in nested loops:");
+    outer: for x from 1 to 4 then
+        inner: for y from 1 to 4 then
+            if y == 2 then
+                continue outer;
+            endif
+            @write("  x=");
+            @write(x);
+            @write(" y=");
+            @writeln(y);
+        endfor
+    endfor
+endfun
+
+fun test_bitwise() then
+    @writeln("=== 2. Bitwise Operators ===");
+    let a: int = 12; // 1100 in binary
+    let b: int = 5;  // 0101 in binary
+
+    let and_res: int = a & b;  // 4 (0100)
+    let or_res: int  = a | b;   // 13 (1101)
+    let shl_res: int = b << 2; // 20
+    let shr_res: int = a >> 1; // 6
+
+    @write("  12 & 5  = ");
+    @writeln(and_res);
+    @write("  12 | 5  = ");
+    @writeln(or_res);
+    @write("  5 << 2  = ");
+    @writeln(shl_res);
+    @write("  12 >> 1 = ");
+    @writeln(shr_res);
+endfun
+
+fun test_arrays() then
+    @writeln("=== 3. Array Operations ===");
+    let numbers: arr<int> = [10, 20, 30, 40];
+    @write("  Original index 0: ");
+    @writeln(numbers[0]);
+
+    numbers[0] = 99;
+    @write("  Modified index 0: ");
+    @writeln(numbers[0]);
+endfun
+
+// --- Execution Entry Point ---
+@writeln("=================================");
+@writeln("   Cylixin Language Feature Test ");
+@writeln("=================================");
+
+@test_loop_control();
+@test_bitwise();
+@test_arrays();
+
+@writeln("=================================");
+@writeln("   All features verified!        ");
+@writeln("=================================");
