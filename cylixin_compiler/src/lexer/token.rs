@@ -65,6 +65,7 @@ pub enum TokenKind {
     To,
     While,
     Break,
+    Continue,
 
     // functions
     Fun,
@@ -165,6 +166,7 @@ impl TokenKind {
             "to"       => Some(TokenKind::To),
             "while"    => Some(TokenKind::While),
             "break"    => Some(TokenKind::Break),
+            "continue" => Some(TokenKind::Continue),
             "fun"      => Some(TokenKind::Fun),
             "return"   => Some(TokenKind::Return),
             "endif"    => Some(TokenKind::EndIf),

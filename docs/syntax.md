@@ -24,7 +24,7 @@ calculate_area
 
 The current lexer reserves the following words:
 
-`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
+`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `continue`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
 
 Note the string type keyword is `string`, not `strg`. There is no `continue` keyword; see [Known Limitations](#known-limitations) for how early loop exits work today.
 
@@ -178,21 +178,24 @@ processing: while !finished then
 endwhile
 ```
 
-#### Labels and Break
+#### Labels, Break, and Continue
 
-A label is an identifier followed by `:` placed immediately before a `for` or `while` loop. `break` exits the innermost loop, or a specific labelled loop if given a label:
+A label is an identifier followed by `:` placed immediately before a `for` or `while` loop. `break` exits the loop, and `continue` skips to the next iteration (executing step/update logic for `for` loops). Both can be used with or without a label:
 
 ```cylixin
-outer: for i from 0 to 3 then
-    inner: for j from 0 to 3 then
-        if i == 1 && j == 1 then
+outer: for i from 0 to 5 then
+    inner: for j from 0 to 5 then
+        if j == 2 then
+            continue inner; // skips to next j iteration
+        endif
+        if i == 3 then
             break outer; // exits the outer loop
         endif
     endfor
 endfor
 ```
 
-`break` (with or without a label) always requires a terminating `;`.
+Both `break` and `continue` require a terminating `;`.
 
 #### Conditional Block Termination
 
@@ -303,7 +306,6 @@ These are gaps between the language as designed and the language as currently im
 * **`endfun when (...): value;` is currently a no-op.** The parser accepts the clause on a function body, but the value and condition are discarded during code generation; a function ending this way behaves as if the clause weren't written at all.
 * **`dic<K, V>` two-parameter generics aren't parsed from a type annotation.** The type-annotation grammar for `dic` currently accepts a single generic argument; a comma-separated key/value pair (e.g. `dic<int, int>`) in an annotation is not yet supported. Dictionary literals themselves (`{1: 10, 2: 20}`) work regardless of how the variable is annotated.
 * **The `empty` keyword is reserved but not yet usable.** It's recognized by the lexer but has no meaning in the parser or codegen yet (there's no `!empty` either).
-* **No `continue` statement.** Only `break` (with the labelled early-exit `when` caveat above) is available for altering loop flow from inside the loop body.
 * **Containers print as pointers.** `write`/`writeln` on an `arr`, `set`, or `dic` value prints its underlying pointer rather than a human-readable rendering of its contents.
 
 If you're picking up any of these, please open an issue first per [CONTRIBUTING.md](../CONTRIBUTING.md) so effort doesn't get duplicated.

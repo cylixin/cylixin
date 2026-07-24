@@ -29,6 +29,7 @@ impl std::fmt::Display for CodegenError {
 
 struct LoopContext<'ctx> {
     exit_block: BasicBlock<'ctx>,
+    continue_block: BasicBlock<'ctx>,
     label: Option<String>,
 }
 
@@ -376,6 +377,7 @@ impl<'ctx> Compiler<'ctx> {
             }
             Stmt::Return(expr) => self.compile_return(expr),
             Stmt::Break(label) => self.compile_break(label),
+            Stmt::Continue(label) => self.compile_continue(label),
         }
     }
 
@@ -578,6 +580,7 @@ impl<'ctx> Compiler<'ctx> {
 
         let header_bb = self.context.append_basic_block(parent, "for_header");
         let body_bb = self.context.append_basic_block(parent, "for_body");
+        let step_bb = self.context.append_basic_block(parent, "for_step");
         let exit_bb = self.context.append_basic_block(parent, "for_exit");
 
         self.builder.build_unconditional_branch(header_bb)
@@ -592,22 +595,26 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_conditional_branch(cmp, body_bb, exit_bb)
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
+        // step: increment i and branch back to header
+        self.builder.position_at_end(step_bb);
+        let cur_inc = self.builder.build_load(i64_ty, ptr, "i_inc")
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        let one = i64_ty.const_int(1, false);
+        let next = self.builder.build_int_add(cur_inc.into_int_value(), one, "next")
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        self.builder.build_store(ptr, next)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        self.builder.build_unconditional_branch(header_bb)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
         // body
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: step_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
-        // increment
         if self.current_block_needs_terminator() {
-            let cur = self.builder.build_load(i64_ty, ptr, "i_inc")
-                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
-            let one = i64_ty.const_int(1, false);
-            let next = self.builder.build_int_add(cur.into_int_value(), one, "next")
-                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
-            self.builder.build_store(ptr, next)
-                .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
-            self.builder.build_unconditional_branch(header_bb)
+            self.builder.build_unconditional_branch(step_bb)
                 .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
         }
 
@@ -623,6 +630,7 @@ impl<'ctx> Compiler<'ctx> {
 
         let header_bb = self.context.append_basic_block(parent, "forc_header");
         let body_bb = self.context.append_basic_block(parent, "forc_body");
+        let step_bb = self.context.append_basic_block(parent, "forc_step");
         let exit_bb = self.context.append_basic_block(parent, "forc_exit");
 
         self.builder.build_unconditional_branch(header_bb)
@@ -633,14 +641,19 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_conditional_branch(cond_val.into_int_value(), body_bb, exit_bb)
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
+        // step: execute update stmt and branch back to header
+        self.builder.position_at_end(step_bb);
+        self.compile_stmt(update)?;
+        self.builder.build_unconditional_branch(header_bb)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: step_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
         if self.current_block_needs_terminator() {
-            self.compile_stmt(update)?;
-            self.builder.build_unconditional_branch(header_bb)
+            self.builder.build_unconditional_branch(step_bb)
                 .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
         }
 
@@ -665,7 +678,7 @@ impl<'ctx> Compiler<'ctx> {
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
 
         self.builder.position_at_end(body_bb);
-        self.loop_stack.push(LoopContext { exit_block: exit_bb, label: label.clone() });
+        self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: header_bb, label: label.clone() });
         for s in body { self.compile_stmt(s)?; }
         self.loop_stack.pop();
 
@@ -752,6 +765,29 @@ impl<'ctx> Compiler<'ctx> {
             }
         };
         self.builder.build_unconditional_branch(exit_bb)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+        Ok(())
+    }
+
+    fn compile_continue(&mut self, label: &Option<String>) -> Result<(), CodegenError> {
+        let cont_bb = match label {
+            // labeled continue — walk the stack to find the named loop
+            Some(lbl) => {
+                self.loop_stack.iter().rev()
+                    .find(|ctx| ctx.label.as_deref() == Some(lbl.as_str()))
+                    .ok_or_else(|| CodegenError::Unsupported(
+                        format!("no loop labeled '{}' in scope", lbl)
+                    ))?
+                    .continue_block
+            }
+            // unlabeled continue — jump to step of the innermost loop
+            None => {
+                self.loop_stack.last()
+                    .ok_or_else(|| CodegenError::Unsupported("continue outside loop".into()))?
+                    .continue_block
+            }
+        };
+        self.builder.build_unconditional_branch(cont_bb)
             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
         Ok(())
     }

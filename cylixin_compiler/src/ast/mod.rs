@@ -138,6 +138,7 @@ pub enum Stmt {
 
     Return(Option<Expr>),
     Break(Option<String>),
+    Continue(Option<String>),
     ExprStmt(Expr),
 }
 

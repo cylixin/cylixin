@@ -45,7 +45,8 @@ impl Parser {
             TokenKind::While  => self.parse_while(),
             TokenKind::Fun    => self.parse_fun_decl(),
             TokenKind::Return => self.parse_return(),
-            TokenKind::Break  => self.parse_break(),
+            TokenKind::Break    => self.parse_break(),
+            TokenKind::Continue => self.parse_continue(),
             TokenKind::Identifier(_) => self.parse_assign_or_expr_stmt(),
             TokenKind::At => {
                 let expr = self.parse_expression()?;
@@ -286,6 +287,17 @@ impl Parser {
         };
         self.expect_semicolon()?;
         Ok(Stmt::Break(label))
+    }
+
+    fn parse_continue(&mut self) -> Result<Stmt, ParseError> {
+        self.expect(TokenKind::Continue, "continue")?;
+        let label = if let TokenKind::Identifier(_) = self.peek_kind() {
+            Some(self.expect_identifier("continue label")?)
+        } else {
+            None
+        };
+        self.expect_semicolon()?;
+        Ok(Stmt::Continue(label))
     }
 
     // parse statements until we hit one of the terminator tokens.
