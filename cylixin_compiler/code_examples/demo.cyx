@@ -17,8 +17,8 @@ fun test_loop_control() then
     endfor
 
     @writeln("Testing labeled continue in nested loops:");
-    outer: for x from 1 to 4 then
-        inner: for y from 1 to 4 then
+    for outer: x from 1 to 4 then
+        for inner: y from 1 to 4 then
             if y == 2 then
                 continue outer;
             endif
