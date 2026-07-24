@@ -1,0 +1,3 @@
+cylixin_compiler/target/
+cylixin_compiler/code_examples/*.ll
+cylixin_compiler/read-test

@@ -1,0 +1,11 @@
+let age: int     = @read("Enter age: ");
+let name: string = @read("Name: ");
+let gpa: float   = @read("GPA: ");
+let ok: bool     = @read("Continue? ");
+let ch: char     = @read("Press key: ");
+
+@writeln(age);
+@writeln(name);
+@writeln(gpa);
+@writeln(ok);
+@writeln(ch);
