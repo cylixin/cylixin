@@ -260,7 +260,6 @@ impl<'ctx> Compiler<'ctx> {
     pub(crate) fn i64_slot_to_value(&self, raw: BasicValueEnum<'ctx>, ty: &CyType)
         -> Result<BasicValueEnum<'ctx>, CodegenError>
     {
-        let i64_type = self.context.i64_type();
         match ty {
             CyType::Int | CyType::Long => Ok(raw),
             CyType::Float => {
