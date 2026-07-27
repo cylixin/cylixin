@@ -1,10 +1,12 @@
 mod lexer;
 mod ast;
 mod parser;
+mod semantic;
 mod codegen;
 
 use lexer::Lexer;
 use parser::Parser;
+use semantic::Checker;
 use codegen::Compiler;
 use inkwell::context::Context;
 use std::path::{Path, PathBuf};
@@ -109,7 +111,19 @@ fn compile_source(path: &str) -> String {
     };
     println!("  ✓ Parsed {} top-level statements", ast.body.len());
 
-    // Step 3: Compile to LLVM IR
+    // Step 3: Semantic check
+    let errors = Checker::new().check(&ast);
+    if !errors.is_empty() {
+        eprintln!("\n✗ Semantic errors in {}:", filename);
+        for err in &errors {
+            eprintln!("    {}", err);
+        }
+        eprintln!();
+        std::process::exit(1);
+    }
+    println!("  ✓ Semantic check passed");
+
+    // Step 4: Compile to LLVM IR
     let context = Context::create();
     let mut compiler = Compiler::new(&context);
     let ir = match compiler.compile(&ast) {
