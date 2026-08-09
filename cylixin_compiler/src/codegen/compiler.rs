@@ -372,8 +372,8 @@ impl<'ctx> Compiler<'ctx> {
                 self.compile_while(condition, body, label)?;
                 self.compile_end_when(end_when)
             }
-            Stmt::FunDecl { name, params, return_type, body } => {
-                self.compile_fun_decl(name, params, return_type, body)
+            Stmt::FunDecl { name, params, return_type, body, end_when } => {
+                self.compile_fun_decl(name, params, return_type, body, end_when)
             }
             Stmt::Return(expr) => self.compile_return(expr),
             Stmt::Break(label) => self.compile_break(label),
@@ -691,7 +691,7 @@ impl<'ctx> Compiler<'ctx> {
         Ok(())
     }
 
-    fn compile_fun_decl(&mut self, name: &str, params: &[Param], _return_type: &Option<CyType>, body: &[Stmt])
+    fn compile_fun_decl(&mut self, name: &str, params: &[Param], _return_type: &Option<CyType>, body: &[Stmt], end_when: &Option<EndWhen>)
         -> Result<(), CodegenError>
     {
         let func = self.module.get_function(name)
@@ -714,6 +714,9 @@ impl<'ctx> Compiler<'ctx> {
         }
 
         for s in body { self.compile_stmt(s)?; }
+
+        // Emit `endfun when (cond): value` guard before the implicit return.
+        self.compile_end_when(end_when)?;
 
         // if no explicit return, add void return or default
         if self.current_block_needs_terminator() {

@@ -244,7 +244,7 @@ impl Checker {
                 self.pop_scope();
             }
 
-            Stmt::FunDecl { name, params, return_type, body } => {
+            Stmt::FunDecl { name, params, return_type, body, .. } => {
                 // Save outer function context
                 let outer_in_function     = self.in_function;
                 let outer_expected_return = self.expected_return.clone();

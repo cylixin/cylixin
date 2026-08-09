@@ -251,9 +251,9 @@ impl Parser {
         self.expect(TokenKind::Then, "then")?;
         let body = self.parse_block(&[TokenKind::EndFun])?;
         self.expect(TokenKind::EndFun, "endfun")?;
-        self.parse_end_when()?;
+        let end_when = self.parse_end_when()?;
 
-        Ok(Stmt::FunDecl { name, params, return_type, body })
+        Ok(Stmt::FunDecl { name, params, return_type, body, end_when })
     }
 
     fn parse_params(&mut self) -> Result<Vec<Param>, ParseError> {
@@ -672,7 +672,10 @@ impl Parser {
             TokenKind::Bool    => Ok(CyType::Bool),
             TokenKind::Null    => Ok(CyType::Null),
             TokenKind::Set     => Ok(CyType::Set(self.try_parse_generic_arg()?.map(Box::new))),
-            TokenKind::Dic     => Ok(CyType::Dic(self.try_parse_generic_arg()?.map(Box::new), None)),
+            TokenKind::Dic     => {
+                let (key, val) = self.try_parse_dic_generic_args()?;
+                Ok(CyType::Dic(key.map(Box::new), val.map(Box::new)))
+            }
             TokenKind::Arr     => Ok(CyType::Arr(self.try_parse_generic_arg()?.map(Box::new))),
             TokenKind::Identifier(name) => Ok(CyType::Unknown(name)),
             other => Err(ParseError::UnexpectedToken {
@@ -693,6 +696,25 @@ impl Parser {
         } else {
             Ok(None)
         }
+    }
+
+    /// Like `try_parse_generic_arg` but reads two comma-separated types for `dic<K, V>`.
+    /// Returns (key_type, val_type) if the `<` is present, both None otherwise.
+    fn try_parse_dic_generic_args(&mut self) -> Result<(Option<CyType>, Option<CyType>), ParseError> {
+        if !self.check(&TokenKind::Less) {
+            return Ok((None, None));
+        }
+        self.advance(); // consume `<`
+        let key_ty = self.parse_type()?;
+        // Allow either one or two type arguments
+        let val_ty = if self.check(&TokenKind::Comma) {
+            self.advance(); // consume `,`
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+        self.expect(TokenKind::Greater, ">")?;
+        Ok((Some(key_ty), val_ty))
     }
 
     fn is_at_end(&self) -> bool {

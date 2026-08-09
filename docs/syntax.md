@@ -248,7 +248,16 @@ let result = @add(10, 5);
 
 Functions are declared with `fun`, a name, a parenthesized, comma-separated parameter list (each parameter requires a `: type` annotation), and an optional `: returnType` after the closing parenthesis. The body runs from `then` to `endfun`. Calls are always `@`-prefixed.
 
-An `endfun when (...): value;` clause is accepted by the parser but does not currently affect the generated function; see [Known Limitations](#known-limitations).
+An `endfun when (cond): value;` clause may appear immediately after `endfun`. If, at the point just before the function's implicit return, `cond` evaluates to true, the function returns `value` instead:
+
+```cylixin
+fun clamp_positive(n: int): int then
+    if n < 0 then
+        n = 0;
+    endif
+    return n;
+endfun when (n == 0): -1;  // if result would be 0, return -1 instead
+```
 
 #### Return
 
@@ -303,8 +312,6 @@ Expressions appear in assignments, conditions, function arguments, and indexing.
 These are gaps between the language as designed and the language as currently implemented in `cylixin_compiler`. They're listed here so contributors and early adopters aren't surprised by them, and they're good first/early places to contribute:
 
 * **`when` clause semantics are not yet unified across block types.** Today, `endif when`, `endfor when`, and `endwhile when` all compile to the same thing: an early `return value` from the enclosing function. The originally intended behavior, where `endfor`/`endwhile when` acted like a conditional labelled `break` and only `endfun when` returned from the function, has not been implemented yet.
-* **`endfun when (...): value;` is currently a no-op.** The parser accepts the clause on a function body, but the value and condition are discarded during code generation; a function ending this way behaves as if the clause weren't written at all.
-* **`dic<K, V>` two-parameter generics aren't parsed from a type annotation.** The type-annotation grammar for `dic` currently accepts a single generic argument; a comma-separated key/value pair (e.g. `dic<int, int>`) in an annotation is not yet supported. Dictionary literals themselves (`{1: 10, 2: 20}`) work regardless of how the variable is annotated.
 * **The `empty` keyword is reserved but not yet usable.** It's recognized by the lexer but has no meaning in the parser or codegen yet (there's no `!empty` either).
 * **Containers print as pointers.** `write`/`writeln` on an `arr`, `set`, or `dic` value prints its underlying pointer rather than a human-readable rendering of its contents.
 
