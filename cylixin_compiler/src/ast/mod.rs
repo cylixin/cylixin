@@ -134,6 +134,7 @@ pub enum Stmt {
         params:      Vec<Param>,
         return_type: Option<CyType>,
         body:        Vec<Stmt>,
+        end_when:    Option<EndWhen>,
     },
 
     Return(Option<Expr>),

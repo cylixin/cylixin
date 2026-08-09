@@ -4,6 +4,16 @@ fun is_even(num: int): bool then
     return num % 2 == 0;
 endfun
 
+// === Step 5: endfun when — early default return ===
+// If the condition is true right before the function would return,
+// it returns `value` instead of the last expression.
+fun clamp_positive(n: int): int then
+    if n < 0 then
+        n = 0;
+    endif
+    return n;
+endfun when (n == 0): -1;
+
 fun test_loop_control() then
     @writeln("=== 1. Loop Control (Continue & Break) ===");
 
@@ -61,6 +71,23 @@ fun test_arrays() then
     @writeln(numbers[0]);
 endfun
 
+fun test_endfun_when() then
+    @writeln("=== 4. endfun when ===");
+    let r1: int = @clamp_positive(5);
+    let r2: int = @clamp_positive(-3);
+    @write("  clamp_positive(5)  = ");
+    @writeln(r1);
+    @write("  clamp_positive(-3) = ");
+    @writeln(r2);
+endfun
+
+fun test_dic_types() then
+    @writeln("=== 5. dic<K, V> Two-Param Generics ===");
+    // dic<int, int> annotation now parses correctly
+    let scores: dic<int, int> = {1: 100, 2: 200, 3: 300};
+    @writeln("  Dictionary declared with dic<int, int> annotation");
+endfun
+
 // --- Execution Entry Point ---
 @writeln("=================================");
 @writeln("   Cylixin Language Feature Test ");
@@ -69,6 +96,8 @@ endfun
 @test_loop_control();
 @test_bitwise();
 @test_arrays();
+@test_endfun_when();
+@test_dic_types();
 
 @writeln("=================================");
 @writeln("   All features verified!        ");
