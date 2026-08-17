@@ -563,6 +563,7 @@ impl Parser {
             TokenKind::CharLiteral(c)   => Ok(Expr::CharLit(c)),
             TokenKind::BoolLiteral(b)   => Ok(Expr::BoolLit(b)),
             TokenKind::Null             => Ok(Expr::NullLit),
+            TokenKind::Empty            => Ok(Expr::EmptyLit),
             TokenKind::Identifier(name) => Ok(Expr::Ident(name)),
 
             TokenKind::LParen => {

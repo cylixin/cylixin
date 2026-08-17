@@ -88,6 +88,34 @@ fun test_dic_types() then
     @writeln("  Dictionary declared with dic<int, int> annotation");
 endfun
 
+fun test_empty() then
+    @writeln("=== 6. empty Keyword (Zero/Default Values) ===");
+
+    let i: int    = empty;     // 0
+    let f: float  = empty;     // 0.0
+    let b: bool   = empty;     // false (0)
+    let s: string = empty;     // ""
+    let c: char   = empty;     // '\0' (0)
+
+    @write("  int    empty = ");
+    @writeln(i);
+    @write("  float  empty = ");
+    @writeln(f);
+    @write("  bool   empty = ");
+    @writeln(b);
+    @write("  string empty = '");
+    @write(s);
+    @writeln("'");
+    @write("  char   empty = (ascii) ");
+    @writeln(c);
+
+    // empty also works for containers
+    let arr_empty: arr<int>     = empty;
+    let set_empty: set<int>     = empty;
+    let dic_empty: dic<int,int> = empty;
+    @writeln("  arr/set/dic empty declarations OK");
+endfun
+
 // --- Execution Entry Point ---
 @writeln("=================================");
 @writeln("   Cylixin Language Feature Test ");
@@ -98,6 +126,7 @@ endfun
 @test_arrays();
 @test_endfun_when();
 @test_dic_types();
+@test_empty();
 
 @writeln("=================================");
 @writeln("   All features verified!        ");
