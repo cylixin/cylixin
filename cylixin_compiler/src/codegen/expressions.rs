@@ -72,49 +72,42 @@ impl<'ctx> Compiler<'ctx> {
                         let raw = self.builder.build_call(malloc_fn, &[eight.into()], "empty_arr")
                             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                         let ptr = match raw.try_as_basic_value() {
-                            inkwell::values::Either::Left(v) => v,
+                            inkwell::values::ValueKind::Basic(v) => v.into_pointer_value(),
                             _ => return Err(CodegenError::LLVMError("malloc returned no value".into())),
                         };
-                        // Cast to i64* and store 0 as length
+                        // Cast to opaque ptr and store 0 as the length header
                         let i64_ptr = self.builder.build_pointer_cast(
-                            ptr.into_pointer_value(),
+                            ptr,
                             self.context.ptr_type(inkwell::AddressSpace::default()),
                             "empty_arr_ptr",
                         ).map_err(|e| CodegenError::LLVMError(e.to_string()))?;
-                        let len_ptr = unsafe {
-                            self.builder.build_gep(i64_type, i64_ptr, &[i64_type.const_int(0, false)], "len_slot")
-                                .map_err(|e| CodegenError::LLVMError(e.to_string()))?
-                        };
-                        self.builder.build_store(len_ptr, i64_type.const_int(0, false))
+                        self.builder.build_store(i64_ptr, i64_type.const_int(0, false))
                             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                         Ok((i64_ptr.into(), ty))
                     }
                     CyType::Set(_) => {
-                        // Delegate to the cy_set_new runtime function
                         let set_new_fn = self.module.get_function("cy_set_new")
                             .ok_or_else(|| CodegenError::UndefinedFunction("cy_set_new".into()))?;
                         let result = self.builder.build_call(set_new_fn, &[], "empty_set")
                             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                         let ptr = match result.try_as_basic_value() {
-                            inkwell::values::Either::Left(v) => Ok(v),
-                            _ => Err(CodegenError::LLVMError("cy_set_new returned no value".into())),
-                        }?;
+                            inkwell::values::ValueKind::Basic(v) => v,
+                            _ => return Err(CodegenError::LLVMError("cy_set_new returned no value".into())),
+                        };
                         Ok((ptr, ty))
                     }
                     CyType::Dic(_, _) => {
-                        // Delegate to the cy_dict_new runtime function
                         let dict_new_fn = self.module.get_function("cy_dict_new")
                             .ok_or_else(|| CodegenError::UndefinedFunction("cy_dict_new".into()))?;
                         let result = self.builder.build_call(dict_new_fn, &[], "empty_dict")
                             .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
                         let ptr = match result.try_as_basic_value() {
-                            inkwell::values::Either::Left(v) => Ok(v),
-                            _ => Err(CodegenError::LLVMError("cy_dict_new returned no value".into())),
-                        }?;
+                            inkwell::values::ValueKind::Basic(v) => v,
+                            _ => return Err(CodegenError::LLVMError("cy_dict_new returned no value".into())),
+                        };
                         Ok((ptr, ty))
                     }
                     CyType::Unknown(_) => {
-                        // Unresolved type: emit zero int as safe fallback
                         let zero = self.context.i64_type().const_int(0, false);
                         Ok((zero.into(), CyType::Int))
                     }

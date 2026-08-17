@@ -813,6 +813,13 @@ impl<'ctx> Compiler<'ctx> {
             None => return Ok(()), // nothing to do
         };
 
+        // Only emit if the current block still needs a terminator (fall-through exists).
+        // If every code path already ended with an explicit `return`, there's nothing
+        // to guard — inserting a branch into a terminated block produces invalid LLVM IR.
+        if !self.current_block_needs_terminator() {
+            return Ok(());
+        }
+
         let parent = self.builder
             .get_insert_block()
             .and_then(|b| b.get_parent())
