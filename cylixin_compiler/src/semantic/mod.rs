@@ -52,7 +52,7 @@ struct FunSig {
 }
 
 // Names of all built-in functions callable with @
-const BUILTINS: &[&str] = &["write", "writeln", "read", "is_even"];
+const BUILTINS: &[&str] = &["write", "writeln", "read"];
 
 // ---------------------------------------------------------------------------
 // Checker state
@@ -311,7 +311,7 @@ impl Checker {
             // Literals are always fine
             Expr::IntLit(_) | Expr::LongLit(_) | Expr::FloatLit(_)
             | Expr::StringLit(_) | Expr::CharLit(_) | Expr::BoolLit(_)
-            | Expr::NullLit => {}
+            | Expr::NullLit | Expr::EmptyLit => {}
 
             Expr::Ident(name) => {
                 if !self.lookup_var(name) {

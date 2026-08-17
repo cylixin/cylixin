@@ -26,7 +26,7 @@ The current lexer reserves the following words:
 
 `let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `continue`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
 
-Note the string type keyword is `string`, not `strg`. There is no `continue` keyword; see [Known Limitations](#known-limitations) for how early loop exits work today.
+Note the string type keyword is `string`, not `strg`. The `empty` keyword produces the zero/default value for the declared type (see [Literals](#literals)).
 
 ### Operators
 
@@ -312,7 +312,6 @@ Expressions appear in assignments, conditions, function arguments, and indexing.
 These are gaps between the language as designed and the language as currently implemented in `cylixin_compiler`. They're listed here so contributors and early adopters aren't surprised by them, and they're good first/early places to contribute:
 
 * **`when` clause semantics are not yet unified across block types.** Today, `endif when`, `endfor when`, and `endwhile when` all compile to the same thing: an early `return value` from the enclosing function. The originally intended behavior, where `endfor`/`endwhile when` acted like a conditional labelled `break` and only `endfun when` returned from the function, has not been implemented yet.
-* **The `empty` keyword is reserved but not yet usable.** It's recognized by the lexer but has no meaning in the parser or codegen yet (there's no `!empty` either).
 * **Containers print as pointers.** `write`/`writeln` on an `arr`, `set`, or `dic` value prints its underlying pointer rather than a human-readable rendering of its contents.
 
 If you're picking up any of these, please open an issue first per [CONTRIBUTING.md](../CONTRIBUTING.md) so effort doesn't get duplicated.

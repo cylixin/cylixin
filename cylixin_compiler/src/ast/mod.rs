@@ -49,6 +49,7 @@ pub enum Expr {
     CharLit(char),
     BoolLit(bool),
     NullLit,
+    EmptyLit,  // `empty` — zero/default value for the declared type
 
     Ident(String),
 
