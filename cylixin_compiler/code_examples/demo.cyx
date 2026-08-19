@@ -86,8 +86,9 @@ fun test_containers() then
     @write("  dic: ");
     @writeln(dic_vals);
 endfun
+
 fun test_endfun_when() then
-    @writeln("=== 4. endfun when ===");
+    @writeln("=== 5. endfun when ===");
     let r1: int = @clamp_positive(5);
     let r2: int = @clamp_positive(-3);
     @write("  clamp_positive(5)  = ");
@@ -97,14 +98,14 @@ fun test_endfun_when() then
 endfun
 
 fun test_dic_types() then
-    @writeln("=== 5. dic<K, V> Two-Param Generics ===");
+    @writeln("=== 6. dic<K, V> Two-Param Generics ===");
     // dic<int, int> annotation now parses correctly
     let scores: dic<int, int> = {1: 100, 2: 200, 3: 300};
     @writeln("  Dictionary declared with dic<int, int> annotation");
 endfun
 
 fun test_empty() then
-    @writeln("=== 6. empty Keyword (Zero/Default Values) ===");
+    @writeln("=== 7. empty Keyword (Zero/Default Values) ===");
 
     let i: int    = empty;     // 0
     let f: float  = empty;     // 0.0

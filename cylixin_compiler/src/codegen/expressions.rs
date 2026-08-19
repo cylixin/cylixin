@@ -663,16 +663,18 @@ impl<'ctx> Compiler<'ctx> {
             }
             "write" | "writeln" => {
                 let newline = name == "writeln";
-                for arg in args {
+                let arg_count = args.len();
+                for (arg_idx, arg) in args.iter().enumerate() {
                     let (val, ty) = self.compile_expr(arg)?;
+                    let is_last = arg_idx + 1 == arg_count;
 
                     // Containers get their own pretty-print runtime functions
                     // instead of falling through to printf (%lld would just
                     // print the raw pointer address).
                     let print_fn_name: Option<&str> = match &ty {
-                        CyType::Arr(_)    => Some(if newline && args.len() == 1 { "cy_arr_print_ln"  } else { "cy_arr_print"  }),
-                        CyType::Set(_)    => Some(if newline && args.len() == 1 { "cy_set_print_ln"  } else { "cy_set_print"  }),
-                        CyType::Dic(_, _) => Some(if newline && args.len() == 1 { "cy_dict_print_ln" } else { "cy_dict_print" }),
+                        CyType::Arr(_)    => Some(if newline && is_last { "cy_arr_print_ln"  } else { "cy_arr_print"  }),
+                        CyType::Set(_)    => Some(if newline && is_last { "cy_set_print_ln"  } else { "cy_set_print"  }),
+                        CyType::Dic(_, _) => Some(if newline && is_last { "cy_dict_print_ln" } else { "cy_dict_print" }),
                         _ => None,
                     };
 
@@ -684,7 +686,7 @@ impl<'ctx> Compiler<'ctx> {
                         continue;
                     }
 
-                    let fmt = match (&ty, newline && args.len() == 1) {
+                    let fmt = match (&ty, newline && is_last) {
                         (CyType::Int | CyType::Long, true)  => "%lld\n",
                         (CyType::Int | CyType::Long, false) => "%lld",
                         (CyType::Float, true)  => "%f\n",
