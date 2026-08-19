@@ -1,9 +1,10 @@
 /*
- * Cylixin Runtime — lightweight C runtime for set and dictionary support.
+ * Cylixin Runtime — lightweight C runtime for set, dictionary, and array support.
  * Compile: gcc output.s runtime.c -o program -lm
  *
  * Both cy_set and cy_dict use open-addressing hash tables with linear probing.
  * Keys and values are stored as int64_t (same boxing scheme as arrays).
+ * cy_arr uses a heap-allocated block: [length: i64][elem0: i64]...[elemN: i64].
  */
 
 #include <stdio.h>
@@ -236,4 +237,70 @@ int8_t cy_read_char(const char *prompt) {
         }
         fprintf(stderr, "  \xe2\x9c\x97 Expected a single character, got '%s'. Try again.\n", buf);
     }
+}
+
+/* ── Container pretty-printing ───────────────────────────────────────── */
+
+/*
+ * Array layout: [length: i64][elem0: i64][elem1: i64]...
+ * ptr points at the length slot.
+ */
+void cy_arr_print(int64_t *arr) {
+    int64_t len = arr[0];
+    printf("[");
+    for (int64_t i = 0; i < len; i++) {
+        if (i > 0) printf(", ");
+        printf("%lld", (long long)arr[i + 1]);
+    }
+    printf("]");
+}
+
+void cy_arr_print_ln(int64_t *arr) {
+    cy_arr_print(arr);
+    printf("\n");
+}
+
+/*
+ * Set: backed by CyDict with dummy value=1.
+ * Iterates the hash table and prints occupied keys.
+ */
+void cy_set_print(CySet *s) {
+    printf("{");
+    int first = 1;
+    for (int64_t i = 0; i < s->capacity; i++) {
+        if (s->entries[i].occupied == 1) {
+            if (!first) printf(", ");
+            printf("%lld", (long long)s->entries[i].key);
+            first = 0;
+        }
+    }
+    printf("}");
+}
+
+void cy_set_print_ln(CySet *s) {
+    cy_set_print(s);
+    printf("\n");
+}
+
+/*
+ * Dict: iterates the hash table and prints key: value pairs.
+ */
+void cy_dict_print(CyDict *d) {
+    printf("{");
+    int first = 1;
+    for (int64_t i = 0; i < d->capacity; i++) {
+        if (d->entries[i].occupied == 1) {
+            if (!first) printf(", ");
+            printf("%lld: %lld",
+                   (long long)d->entries[i].key,
+                   (long long)d->entries[i].value);
+            first = 0;
+        }
+    }
+    printf("}");
+}
+
+void cy_dict_print_ln(CyDict *d) {
+    cy_dict_print(d);
+    printf("\n");
 }

@@ -168,6 +168,21 @@ impl<'ctx> Compiler<'ctx> {
         // cy_set_size(ptr) -> i64
         let set_size_ty = i64_type.fn_type(&[ptr_type.into()], false);
         self.module.add_function("cy_set_size", set_size_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_arr_print(ptr) -> void
+        let arr_print_ty = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_arr_print",    arr_print_ty, Some(inkwell::module::Linkage::External));
+        self.module.add_function("cy_arr_print_ln", arr_print_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_set_print(ptr) -> void
+        let set_print_ty = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_set_print",    set_print_ty, Some(inkwell::module::Linkage::External));
+        self.module.add_function("cy_set_print_ln", set_print_ty, Some(inkwell::module::Linkage::External));
+
+        // cy_dict_print(ptr) -> void
+        let dict_print_ty = void_type.fn_type(&[ptr_type.into()], false);
+        self.module.add_function("cy_dict_print",    dict_print_ty, Some(inkwell::module::Linkage::External));
+        self.module.add_function("cy_dict_print_ln", dict_print_ty, Some(inkwell::module::Linkage::External));
     }
 
     fn declare_read_funcs(&self) {
