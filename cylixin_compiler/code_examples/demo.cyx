@@ -63,14 +63,29 @@ endfun
 fun test_arrays() then
     @writeln("=== 3. Array Operations ===");
     let numbers: arr<int> = [10, 20, 30, 40];
-    @write("  Original index 0: ");
-    @writeln(numbers[0]);
+    @write("  Original: ");
+    @writeln(numbers);
 
     numbers[0] = 99;
-    @write("  Modified index 0: ");
-    @writeln(numbers[0]);
+    @write("  Modified: ");
+    @writeln(numbers);
 endfun
 
+fun test_containers() then
+    @writeln("=== 4. Container Pretty-Printing ===");
+
+    let arr_vals: arr<int> = [1, 2, 3, 4, 5];
+    @write("  arr: ");
+    @writeln(arr_vals);
+
+    let set_vals: set<int> = {10, 20, 30};
+    @write("  set: ");
+    @writeln(set_vals);
+
+    let dic_vals: dic<int, int> = {1: 100, 2: 200, 3: 300};
+    @write("  dic: ");
+    @writeln(dic_vals);
+endfun
 fun test_endfun_when() then
     @writeln("=== 4. endfun when ===");
     let r1: int = @clamp_positive(5);
@@ -113,7 +128,12 @@ fun test_empty() then
     let arr_empty: arr<int>     = empty;
     let set_empty: set<int>     = empty;
     let dic_empty: dic<int,int> = empty;
-    @writeln("  arr/set/dic empty declarations OK");
+    @write("  arr empty: ");
+    @writeln(arr_empty);
+    @write("  set empty: ");
+    @writeln(set_empty);
+    @write("  dic empty: ");
+    @writeln(dic_empty);
 endfun
 
 // --- Execution Entry Point ---
@@ -124,6 +144,7 @@ endfun
 @test_loop_control();
 @test_bitwise();
 @test_arrays();
+@test_containers();
 @test_endfun_when();
 @test_dic_types();
 @test_empty();
