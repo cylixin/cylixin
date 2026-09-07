@@ -47,8 +47,7 @@ type VarEnv = HashMap<String, Option<CyType>>;
 /// Known user function signature
 #[derive(Clone)]
 struct FunSig {
-    params:      Vec<Param>,
-    return_type: Option<CyType>,
+    params: Vec<Param>,
 }
 
 // Names of all built-in functions callable with @
@@ -94,10 +93,9 @@ impl Checker {
     pub fn check(mut self, program: &Program) -> Vec<SemanticError> {
         // First pass: collect all function signatures so forward calls work.
         for stmt in &program.body {
-            if let Stmt::FunDecl { name, params, return_type, .. } = stmt {
+            if let Stmt::FunDecl { name, params, .. } = stmt {
                 self.functions.insert(name.clone(), FunSig {
                     params:      params.clone(),
-                    return_type: return_type.clone(),
                 });
             }
         }
@@ -150,14 +148,6 @@ impl Checker {
             message: message.into(),
             line:    0,
             column:  0,
-        });
-    }
-
-    fn error_at(&mut self, line: usize, col: usize, message: impl Into<String>) {
-        self.errors.push(SemanticError {
-            message: message.into(),
-            line,
-            column: col,
         });
     }
 
