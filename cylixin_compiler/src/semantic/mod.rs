@@ -66,6 +66,7 @@ pub struct Checker {
     errors:    Vec<SemanticError>,
     /// How many loops deep we currently are (for break/continue validation).
     loop_depth: usize,
+    switch_depth: usize,
     /// Whether we are inside a function body (for return validation).
     in_function: bool,
     /// Expected return type of the current function, if any.
@@ -79,6 +80,7 @@ impl Checker {
             functions:       HashMap::new(),
             errors:          Vec::new(),
             loop_depth:      0,
+            switch_depth:    0,
             in_function:     false,
             expected_return: None,
         }
@@ -203,6 +205,37 @@ impl Checker {
                 }
             }
 
+            Stmt::Switch { expression, cases, default } => {
+                self.check_expr(expression);
+                let switch_type = self.infer_type(expression);
+                self.switch_depth += 1;
+                for case in cases {
+                    for value in &case.values {
+                        self.check_expr(value);
+                        let case_type = self.infer_type(value);
+                        if !Self::is_switch_constant(value) {
+                            self.error("switch case value must be a compile-time constant");
+                        } else if let (Some(expected), Some(actual)) = (&switch_type, case_type) {
+                            if expected != &actual {
+                                self.error(format!(
+                                    "switch case type {:?} does not match switch expression type {:?}",
+                                    actual, expected
+                                ));
+                            }
+                        }
+                    }
+                    self.push_scope();
+                    for s in &case.body { self.check_stmt(s); }
+                    self.pop_scope();
+                }
+                if let Some(body) = default {
+                    self.push_scope();
+                    for s in body { self.check_stmt(s); }
+                    self.pop_scope();
+                }
+                self.switch_depth -= 1;
+            }
+
             Stmt::ForRange { var, from, to, body, .. } => {
                 self.check_expr(from);
                 self.check_expr(to);
@@ -239,10 +272,12 @@ impl Checker {
                 let outer_in_function     = self.in_function;
                 let outer_expected_return = self.expected_return.clone();
                 let outer_loop_depth      = self.loop_depth;
+                let outer_switch_depth    = self.switch_depth;
 
                 self.in_function     = true;
                 self.expected_return = return_type.clone();
                 self.loop_depth      = 0; // loops inside a fun start fresh
+                self.switch_depth    = 0; // switches inside a fun start fresh
 
                 self.push_scope();
                 for param in params {
@@ -255,6 +290,7 @@ impl Checker {
                 self.in_function     = outer_in_function;
                 self.expected_return = outer_expected_return;
                 self.loop_depth      = outer_loop_depth;
+                self.switch_depth    = outer_switch_depth;
 
                 let _ = name; // name is already registered in the pre-pass
             }
@@ -269,7 +305,7 @@ impl Checker {
             }
 
             Stmt::Break(label) => {
-                if self.loop_depth == 0 {
+                if self.loop_depth == 0 && self.switch_depth == 0 {
                     match label {
                         Some(l) => self.error(format!("`break {}` used outside of a loop", l)),
                         None    => self.error("`break` used outside of a loop"),
@@ -419,7 +455,17 @@ impl Checker {
             Expr::NullLit      => Some(CyType::Null),
             Expr::Ident(n)     => self.var_type(n),
             Expr::Grouped(e)   => self.infer_type(e),
+            Expr::UnaryOp { op: UnaryOp::Neg, expr } => self.infer_type(expr),
             _ => None, // too complex to infer without a full type-system
+        }
+    }
+
+    fn is_switch_constant(expr: &Expr) -> bool {
+        match expr {
+            Expr::IntLit(_) | Expr::LongLit(_) | Expr::CharLit(_) | Expr::BoolLit(_) => true,
+            Expr::Grouped(inner) => Self::is_switch_constant(inner),
+            Expr::UnaryOp { op: UnaryOp::Neg, expr } => Self::is_switch_constant(expr),
+            _ => false,
         }
     }
 

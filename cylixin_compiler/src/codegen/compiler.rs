@@ -40,6 +40,7 @@ pub struct Compiler<'ctx> {
     pub(crate) variables: HashMap<String, (PointerValue<'ctx>, CyType)>,
     pub(crate) functions: HashMap<String, (FunctionValue<'ctx>, Option<CyType>)>,
     loop_stack: Vec<LoopContext<'ctx>>,
+    break_stack: Vec<BasicBlock<'ctx>>,
     /// Set temporarily before compiling an expression so that type-directed
     /// builtins like `@read()` know what type to return.
     pub(crate) read_target_type: Option<CyType>,
@@ -54,6 +55,7 @@ impl<'ctx> Compiler<'ctx> {
             variables: HashMap::new(),
             functions: HashMap::new(),
             loop_stack: Vec::new(),
+            break_stack: Vec::new(),
             read_target_type: None,
         }
     }
@@ -375,6 +377,9 @@ impl<'ctx> Compiler<'ctx> {
                 self.compile_if(condition, then_body, elif_arms, else_body)?;
                 self.compile_end_when(end_when)
             }
+            Stmt::Switch { expression, cases, default } => {
+                self.compile_switch(expression, cases, default)
+            }
             Stmt::ForRange { var, from, to, body, label, end_when } => {
                 self.compile_for_range(var, from, to, body, label)?;
                 self.compile_end_when(end_when)
@@ -579,6 +584,58 @@ impl<'ctx> Compiler<'ctx> {
         Ok(())
     }
 
+    fn compile_switch(&mut self, expression: &Expr, cases: &[SwitchCase], default: &Option<Vec<Stmt>>)
+        -> Result<(), CodegenError>
+    {
+        let parent = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let (switch_value, switch_ty) = self.compile_expr(expression)?;
+        let switch_value = switch_value.into_int_value();
+        let merge_bb = self.context.append_basic_block(parent, "endswitch");
+        let default_bb = default.as_ref()
+            .map(|_| self.context.append_basic_block(parent, "switch_default"))
+            .unwrap_or(merge_bb);
+
+        let mut case_blocks = Vec::new();
+        let mut switch_cases = Vec::new();
+        for (case_index, case) in cases.iter().enumerate() {
+            let case_bb = self.context.append_basic_block(parent, &format!("switch_case{}", case_index));
+            case_blocks.push(case_bb);
+            for value in &case.values {
+                let (case_value, case_ty) = self.compile_expr(value)?;
+                if case_ty != switch_ty {
+                    return Err(CodegenError::Unsupported(
+                        "switch case type must match switch expression type".into(),
+                    ));
+                }
+                switch_cases.push((case_value.into_int_value(), case_bb));
+            }
+        }
+
+        self.builder.build_switch(switch_value, default_bb, &switch_cases)
+            .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+
+        self.break_stack.push(merge_bb);
+        for (case, case_bb) in cases.iter().zip(case_blocks) {
+            self.builder.position_at_end(case_bb);
+            for stmt in &case.body { self.compile_stmt(stmt)?; }
+            if self.current_block_needs_terminator() {
+                self.builder.build_unconditional_branch(merge_bb)
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+            }
+        }
+        if let Some(body) = default {
+            self.builder.position_at_end(default_bb);
+            for stmt in body { self.compile_stmt(stmt)?; }
+            if self.current_block_needs_terminator() {
+                self.builder.build_unconditional_branch(merge_bb)
+                    .map_err(|e| CodegenError::LLVMError(e.to_string()))?;
+            }
+        }
+        self.break_stack.pop();
+        self.builder.position_at_end(merge_bb);
+        Ok(())
+    }
+
     fn compile_for_range(&mut self, var: &str, from: &Expr, to: &Expr, body: &[Stmt], label: &Option<String>)
         -> Result<(), CodegenError>
     {
@@ -625,7 +682,9 @@ impl<'ctx> Compiler<'ctx> {
         // body
         self.builder.position_at_end(body_bb);
         self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: step_bb, label: label.clone() });
+        self.break_stack.push(exit_bb);
         for s in body { self.compile_stmt(s)?; }
+        self.break_stack.pop();
         self.loop_stack.pop();
 
         if self.current_block_needs_terminator() {
@@ -664,7 +723,9 @@ impl<'ctx> Compiler<'ctx> {
 
         self.builder.position_at_end(body_bb);
         self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: step_bb, label: label.clone() });
+        self.break_stack.push(exit_bb);
         for s in body { self.compile_stmt(s)?; }
+        self.break_stack.pop();
         self.loop_stack.pop();
 
         if self.current_block_needs_terminator() {
@@ -694,7 +755,9 @@ impl<'ctx> Compiler<'ctx> {
 
         self.builder.position_at_end(body_bb);
         self.loop_stack.push(LoopContext { exit_block: exit_bb, continue_block: header_bb, label: label.clone() });
+        self.break_stack.push(exit_bb);
         for s in body { self.compile_stmt(s)?; }
+        self.break_stack.pop();
         self.loop_stack.pop();
 
         if self.current_block_needs_terminator() {
@@ -775,11 +838,10 @@ impl<'ctx> Compiler<'ctx> {
                     ))?
                     .exit_block
             }
-            // unlabeled break — exit the innermost loop
+            // unlabeled break — exit the innermost loop or switch
             None => {
-                self.loop_stack.last()
-                    .ok_or_else(|| CodegenError::Unsupported("break outside loop".into()))?
-                    .exit_block
+                *self.break_stack.last()
+                    .ok_or_else(|| CodegenError::Unsupported("break outside loop or switch".into()))?
             }
         };
         self.builder.build_unconditional_branch(exit_bb)
