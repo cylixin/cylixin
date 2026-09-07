@@ -24,7 +24,7 @@ calculate_area
 
 The current lexer reserves the following words:
 
-`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `continue`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
+`let`, `var`, `const`, `int`, `long`, `float`, `string`, `char`, `bool`, `set`, `dic`, `arr`, `null`, `if`, `else`, `elif`, `switch`, `case`, `default`, `then`, `when`, `for`, `from`, `to`, `while`, `break`, `continue`, `fun`, `return`, `endif`, `endfor`, `endwhile`, `endfun`, `endswitch`, `true`, `false`, `empty`, `read`, `write`, `writeln`.
 
 Note the string type keyword is `string`, not `strg`. The `empty` keyword produces the zero/default value for the declared type (see [Literals](#literals)).
 
@@ -176,6 +176,27 @@ Both forms accept an optional label (see below) and an optional `endfor when` cl
 processing: while !finished then
     // ...
 endwhile
+```
+
+#### Switch / Case
+
+`switch` evaluates its expression once and selects one matching `case`. Case
+values must be compile-time integer-like constants (`int`, `long`, `char`, or
+`bool`) with the same type as the switch expression. Cases do not fall through;
+they leave the switch after their body. `break;` can leave a case early, and
+`default` is optional.
+
+```cylixin
+switch command then
+    case 1 then
+        @writeln("start");
+        break;
+    case 2, 3 then
+        @writeln("stop or pause");
+        break;
+    default then
+        @writeln("unknown command");
+endswitch
 ```
 
 #### Labels, Break, and Continue

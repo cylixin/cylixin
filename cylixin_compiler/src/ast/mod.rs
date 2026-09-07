@@ -105,6 +105,12 @@ pub enum Stmt {
         end_when:  Option<EndWhen>,
     },
 
+    Switch {
+        expression: Expr,
+        cases: Vec<SwitchCase>,
+        default: Option<Vec<Stmt>>,
+    },
+
     ForRange {
         var:      String,
         from:     Expr,
@@ -157,6 +163,12 @@ pub enum AssignTarget {
 pub struct ElifArm {
     pub condition: Expr,
     pub body:      Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwitchCase {
+    pub values: Vec<Expr>,
+    pub body: Vec<Stmt>,
 }
 
 // `endif when (x < 0): default_val` - lets a block bail early with a value

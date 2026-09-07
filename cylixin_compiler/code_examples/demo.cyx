@@ -4,7 +4,6 @@ fun is_even(num: int): bool then
     return num % 2 == 0;
 endfun
 
-// === Step 5: endfun when — early default return ===
 // If the condition is true right before the function would return,
 // it returns `value` instead of the last expression.
 fun clamp_positive(n: int): int then
@@ -137,6 +136,20 @@ fun test_empty() then
     @writeln(dic_empty);
 endfun
 
+fun test_switch_case(value: int) then
+    @write("switch result: ");
+    switch value then
+        case 1 then
+            @writeln("one");
+            break;
+        case 2, 3 then
+            @writeln("two or three");
+            break;
+        default then
+            @writeln("other");
+    endswitch
+endfun
+
 // --- Execution Entry Point ---
 @writeln("=================================");
 @writeln("   Cylixin Language Feature Test ");
@@ -149,6 +162,9 @@ endfun
 @test_endfun_when();
 @test_dic_types();
 @test_empty();
+@test_switch_case(1);
+@test_switch_case(3);
+@test_switch_case(9);
 
 @writeln("=================================");
 @writeln("   All features verified!        ");

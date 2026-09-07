@@ -1,0 +1,47 @@
+fun add(a: int, b: int): int then
+    return a + b;
+endfun
+
+fun subtract(a: int, b: int): int then
+    return a - b;
+endfun
+
+fun multiply(a: int, b: int): int then
+    return a * b;
+endfun
+
+fun divide(a: int, b: int): int then
+    return a / b;
+endfun
+
+let a: int = @read("Enter first number: ");
+let b: int = @read("Enter second number: ");
+
+// @writeln("Addition: ");
+// @writeln(@add(a, b));
+
+// @writeln("Subtraction: ");
+// @writeln(@subtract(a, b));
+
+// @writeln("Multiplication: ");
+// @writeln(@multiply(a, b));
+
+// @writeln("Division: ");
+// @writeln(@divide(a, b));
+let operation: int = @read("Enter operation 1(add), 2(subtract), 3(multiply), 4(divide): ");
+switch operation then
+    case 1 then
+        @writeln("Addition: ");
+        @writeln(@add(a, b));
+    case 2 then
+        @writeln("Subtraction: ");
+        @writeln(@subtract(a, b));
+    case 3 then
+        @writeln("Multiplication: ");
+        @writeln(@multiply(a, b));
+    case 4 then
+        @writeln("Division: ");
+        @writeln(@divide(a, b));
+    default then
+        @writeln("Invalid operation");
+endswitch

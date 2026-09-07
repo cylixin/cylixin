@@ -41,6 +41,7 @@ impl Parser {
         match self.peek_kind() {
             TokenKind::Let | TokenKind::Var | TokenKind::Const => self.parse_var_decl(),
             TokenKind::If     => self.parse_if(),
+            TokenKind::Switch => self.parse_switch(),
             TokenKind::For    => self.parse_for(),
             TokenKind::While  => self.parse_while(),
             TokenKind::Fun    => self.parse_fun_decl(),
@@ -170,6 +171,36 @@ impl Parser {
         let end_when = self.parse_end_when()?;
 
         Ok(Stmt::If { condition, then_body, elif_arms, else_body, end_when })
+    }
+
+    fn parse_switch(&mut self) -> Result<Stmt, ParseError> {
+        self.expect(TokenKind::Switch, "switch")?;
+        let expression = self.parse_expression()?;
+        self.expect(TokenKind::Then, "then")?;
+
+        let mut cases = Vec::new();
+        while self.check(&TokenKind::Case) {
+            self.advance();
+            let mut values = vec![self.parse_expression()?];
+            while self.check(&TokenKind::Comma) {
+                self.advance();
+                values.push(self.parse_expression()?);
+            }
+            self.expect(TokenKind::Then, "then")?;
+            let body = self.parse_block(&[TokenKind::Case, TokenKind::Default, TokenKind::EndSwitch])?;
+            cases.push(SwitchCase { values, body });
+        }
+
+        let default = if self.check(&TokenKind::Default) {
+            self.advance();
+            self.expect(TokenKind::Then, "then")?;
+            Some(self.parse_block(&[TokenKind::EndSwitch])?)
+        } else {
+            None
+        };
+
+        self.expect(TokenKind::EndSwitch, "endswitch")?;
+        Ok(Stmt::Switch { expression, cases, default })
     }
 
     fn parse_for(&mut self) -> Result<Stmt, ParseError> {
@@ -821,6 +852,12 @@ mod tests {
     fn test_if_else() {
         let prog = parse("if x > 10 then @writeln(\"big\"); else @writeln(\"small\"); endif");
         assert!(matches!(&prog.body[0], Stmt::If { else_body: Some(_), .. }));
+    }
+
+    #[test]
+    fn test_switch_case() {
+        let prog = parse("switch x then case 1, 2 then break; default then @writeln(\"other\"); endswitch");
+        assert!(matches!(&prog.body[0], Stmt::Switch { cases, default: Some(_), .. } if cases.len() == 1));
     }
 
     #[test]

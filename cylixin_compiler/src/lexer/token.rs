@@ -54,6 +54,9 @@ pub enum TokenKind {
 
     // control flow
     If,
+    Switch,
+    Case,
+    Default,
     Else,
     Elif,
     Then,
@@ -74,6 +77,7 @@ pub enum TokenKind {
     // block terminators - each block type gets its own so you always
     // know what's closing at a glance
     EndIf,
+    EndSwitch,
     EndFor,
     EndWhile,
     EndFun,
@@ -157,6 +161,9 @@ impl TokenKind {
             "arr"      => Some(TokenKind::Arr),
             "null"     => Some(TokenKind::Null),
             "if"       => Some(TokenKind::If),
+            "switch"   => Some(TokenKind::Switch),
+            "case"     => Some(TokenKind::Case),
+            "default"  => Some(TokenKind::Default),
             "else"     => Some(TokenKind::Else),
             "elif"     => Some(TokenKind::Elif),
             "then"     => Some(TokenKind::Then),
@@ -170,6 +177,7 @@ impl TokenKind {
             "fun"      => Some(TokenKind::Fun),
             "return"   => Some(TokenKind::Return),
             "endif"    => Some(TokenKind::EndIf),
+            "endswitch"=> Some(TokenKind::EndSwitch),
             "endfor"   => Some(TokenKind::EndFor),
             "endwhile" => Some(TokenKind::EndWhile),
             "endfun"   => Some(TokenKind::EndFun),
