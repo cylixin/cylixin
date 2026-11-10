@@ -16,11 +16,25 @@ pub enum CyType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOp {
-    Add, Sub, Mul, Div, Mod, Pow,
-    Eq, StrictEq, NotEq,
-    Lt, Gt, LtEq, GtEq,
-    And, Or,
-    BitAnd, BitOr, Shl, Shr,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Pow,
+    Eq,
+    StrictEq,
+    NotEq,
+    Lt,
+    Gt,
+    LtEq,
+    GtEq,
+    And,
+    Or,
+    BitAnd,
+    BitOr,
+    Shl,
+    Shr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,18 +63,18 @@ pub enum Expr {
     CharLit(char),
     BoolLit(bool),
     NullLit,
-    EmptyLit,  // `empty` — zero/default value for the declared type
+    EmptyLit, // `empty` — zero/default value for the declared type
 
     Ident(String),
 
     BinaryOp {
-        left:  Box<Expr>,
-        op:    BinaryOp,
+        left: Box<Expr>,
+        op: BinaryOp,
         right: Box<Expr>,
     },
 
     UnaryOp {
-        op:   UnaryOp,
+        op: UnaryOp,
         expr: Box<Expr>,
     },
 
@@ -73,7 +87,7 @@ pub enum Expr {
 
     Index {
         collection: Box<Expr>,
-        index:      Box<Expr>,
+        index: Box<Expr>,
     },
 
     ArrayLit(Vec<Expr>),
@@ -85,16 +99,16 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     VarDecl {
-        kind:        VarKind,
-        name:        String,
-        type_ann:    Option<CyType>,
+        kind: VarKind,
+        name: String,
+        type_ann: Option<CyType>,
         initialiser: Option<Expr>,
     },
 
     Assign {
         target: AssignTarget,
-        op:     AssignOp,
-        value:  Expr,
+        op: AssignOp,
+        value: Expr,
     },
 
     If {
@@ -102,7 +116,7 @@ pub enum Stmt {
         then_body: Vec<Stmt>,
         elif_arms: Vec<ElifArm>,
         else_body: Option<Vec<Stmt>>,
-        end_when:  Option<EndWhen>,
+        end_when: Option<EndWhen>,
     },
 
     Switch {
@@ -112,46 +126,51 @@ pub enum Stmt {
     },
 
     ForRange {
-        var:      String,
-        from:     Expr,
-        to:       Expr,
-        body:     Vec<Stmt>,
-        label:    Option<String>,
+        var: String,
+        from: Expr,
+        to: Expr,
+        body: Vec<Stmt>,
+        label: Option<String>,
         end_when: Option<EndWhen>,
     },
 
     ForC {
-        init:     Box<Stmt>,
-        cond:     Expr,
-        update:   Box<Stmt>,
-        body:     Vec<Stmt>,
-        label:    Option<String>,
+        init: Box<Stmt>,
+        cond: Expr,
+        update: Box<Stmt>,
+        body: Vec<Stmt>,
+        label: Option<String>,
         end_when: Option<EndWhen>,
     },
 
     While {
         condition: Expr,
-        body:      Vec<Stmt>,
-        label:     Option<String>,
-        end_when:  Option<EndWhen>,
+        body: Vec<Stmt>,
+        label: Option<String>,
+        end_when: Option<EndWhen>,
     },
 
     FunDecl {
-        name:        String,
-        params:      Vec<Param>,
+        name: String,
+        params: Vec<Param>,
         return_type: Option<CyType>,
-        body:        Vec<Stmt>,
-        end_when:    Option<EndWhen>,
+        body: Vec<Stmt>,
+        end_when: Option<EndWhen>,
     },
 
     Return(Option<Expr>),
     Break(Option<String>),
     Continue(Option<String>),
+    #[allow(clippy::enum_variant_names)]
     ExprStmt(Expr),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum VarKind { Let, Var, Const }
+pub enum VarKind {
+    Let,
+    Var,
+    Const,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignTarget {
@@ -162,7 +181,7 @@ pub enum AssignTarget {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElifArm {
     pub condition: Expr,
-    pub body:      Vec<Stmt>,
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,12 +194,12 @@ pub struct SwitchCase {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EndWhen {
     pub condition: Expr,
-    pub value:     Expr,
+    pub value: Expr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Param {
-    pub name:     String,
+    pub name: String,
     pub type_ann: CyType,
 }
 

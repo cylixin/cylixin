@@ -18,7 +18,10 @@ pub struct Token {
 
 impl Token {
     pub fn new(kind: TokenKind, line: usize, column: usize) -> Self {
-        Token { kind, span: Span::new(line, column) }
+        Token {
+            kind,
+            span: Span::new(line, column),
+        }
     }
 }
 
@@ -27,7 +30,7 @@ impl Token {
 pub enum TokenKind {
     // literals
     IntLiteral(i64),
-    LongLiteral(i64),   // 42L suffix
+    LongLiteral(i64), // 42L suffix
     FloatLiteral(f64),
     StringLiteral(String),
     CharLiteral(char),
@@ -44,7 +47,7 @@ pub enum TokenKind {
     Int,
     Long,
     Float,
-    String_,  // can't name this String in Rust, so String_ internally
+    String_, // can't name this String in Rust, so String_ internally
     Char,
     Bool,
     Set,
@@ -97,12 +100,12 @@ pub enum TokenKind {
     Star,
     Slash,
     Percent,
-    StarStar,    // **
+    StarStar, // **
 
     // comparison
-    EqEqEq,     // === strict equality (value + type)
-    EqEq,       // ==
-    BangEq,     // !=
+    EqEqEq, // === strict equality (value + type)
+    EqEq,   // ==
+    BangEq, // !=
     Greater,
     Less,
     GreaterEq,
@@ -138,7 +141,7 @@ pub enum TokenKind {
     Comma,
     Semicolon,
     Colon,
-    At,     // @ prefix on all function calls
+    At, // @ prefix on all function calls
 
     Eof,
 }
@@ -147,47 +150,47 @@ impl TokenKind {
     /// Returns Some(keyword) if the word is reserved, None if it's a user identifier.
     pub fn from_keyword(word: &str) -> Option<TokenKind> {
         match word {
-            "let"      => Some(TokenKind::Let),
-            "var"      => Some(TokenKind::Var),
-            "const"    => Some(TokenKind::Const),
-            "int"      => Some(TokenKind::Int),
-            "long"     => Some(TokenKind::Long),
-            "float"    => Some(TokenKind::Float),
-            "string"   => Some(TokenKind::String_),
-            "char"     => Some(TokenKind::Char),
-            "bool"     => Some(TokenKind::Bool),
-            "set"      => Some(TokenKind::Set),
-            "dic"      => Some(TokenKind::Dic),
-            "arr"      => Some(TokenKind::Arr),
-            "null"     => Some(TokenKind::Null),
-            "if"       => Some(TokenKind::If),
-            "switch"   => Some(TokenKind::Switch),
-            "case"     => Some(TokenKind::Case),
-            "default"  => Some(TokenKind::Default),
-            "else"     => Some(TokenKind::Else),
-            "elif"     => Some(TokenKind::Elif),
-            "then"     => Some(TokenKind::Then),
-            "when"     => Some(TokenKind::When),
-            "for"      => Some(TokenKind::For),
-            "from"     => Some(TokenKind::From),
-            "to"       => Some(TokenKind::To),
-            "while"    => Some(TokenKind::While),
-            "break"    => Some(TokenKind::Break),
+            "let" => Some(TokenKind::Let),
+            "var" => Some(TokenKind::Var),
+            "const" => Some(TokenKind::Const),
+            "int" => Some(TokenKind::Int),
+            "long" => Some(TokenKind::Long),
+            "float" => Some(TokenKind::Float),
+            "string" => Some(TokenKind::String_),
+            "char" => Some(TokenKind::Char),
+            "bool" => Some(TokenKind::Bool),
+            "set" => Some(TokenKind::Set),
+            "dic" => Some(TokenKind::Dic),
+            "arr" => Some(TokenKind::Arr),
+            "null" => Some(TokenKind::Null),
+            "if" => Some(TokenKind::If),
+            "switch" => Some(TokenKind::Switch),
+            "case" => Some(TokenKind::Case),
+            "default" => Some(TokenKind::Default),
+            "else" => Some(TokenKind::Else),
+            "elif" => Some(TokenKind::Elif),
+            "then" => Some(TokenKind::Then),
+            "when" => Some(TokenKind::When),
+            "for" => Some(TokenKind::For),
+            "from" => Some(TokenKind::From),
+            "to" => Some(TokenKind::To),
+            "while" => Some(TokenKind::While),
+            "break" => Some(TokenKind::Break),
             "continue" => Some(TokenKind::Continue),
-            "fun"      => Some(TokenKind::Fun),
-            "return"   => Some(TokenKind::Return),
-            "endif"    => Some(TokenKind::EndIf),
-            "endswitch"=> Some(TokenKind::EndSwitch),
-            "endfor"   => Some(TokenKind::EndFor),
+            "fun" => Some(TokenKind::Fun),
+            "return" => Some(TokenKind::Return),
+            "endif" => Some(TokenKind::EndIf),
+            "endswitch" => Some(TokenKind::EndSwitch),
+            "endfor" => Some(TokenKind::EndFor),
             "endwhile" => Some(TokenKind::EndWhile),
-            "endfun"   => Some(TokenKind::EndFun),
-            "true"     => Some(TokenKind::BoolLiteral(true)),
-            "false"    => Some(TokenKind::BoolLiteral(false)),
-            "empty"    => Some(TokenKind::Empty),
-            "read"     => Some(TokenKind::Read),
-            "write"    => Some(TokenKind::Write),
-            "writeln"  => Some(TokenKind::Writeln),
-            _          => None,
+            "endfun" => Some(TokenKind::EndFun),
+            "true" => Some(TokenKind::BoolLiteral(true)),
+            "false" => Some(TokenKind::BoolLiteral(false)),
+            "empty" => Some(TokenKind::Empty),
+            "read" => Some(TokenKind::Read),
+            "write" => Some(TokenKind::Write),
+            "writeln" => Some(TokenKind::Writeln),
+            _ => None,
         }
     }
 }

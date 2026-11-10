@@ -1,20 +1,20 @@
-/// Semantic analysis pass — walks the AST before codegen and catches
-/// common programming mistakes with friendly `line:col: error` messages.
-///
-/// First-pass checks (intentionally limited to avoid over-engineering):
-///   1. Undefined variables (reads a name that hasn't been declared).
-///   2. Undefined functions (calls a function that hasn't been declared or is not a builtin).
-///   3. Wrong number of arguments to a user-defined function.
-///   4. `break` / `continue` outside a loop.
-///   5. `return` outside a function.
-///   6. Type mismatch on assignment and `return` (best-effort; only checks the obvious cases).
-///
-/// Span information is best-effort: every statement carries no span today,
-/// so errors on statements report (0, 0). Expression-level errors inside a
-/// named binding do carry a name that appears in the message.
+//! Semantic analysis pass — walks the AST before codegen and catches
+//! common programming mistakes with friendly `line:col: error` messages.
+//!
+//! First-pass checks (intentionally limited to avoid over-engineering):
+//!   1. Undefined variables (reads a name that hasn't been declared).
+//!   2. Undefined functions (calls a function that hasn't been declared or is not a builtin).
+//!   3. Wrong number of arguments to a user-defined function.
+//!   4. `break` / `continue` outside a loop.
+//!   5. `return` outside a function.
+//!   6. Type mismatch on assignment and `return` (best-effort; only checks the obvious cases).
+//!
+//! Span information is best-effort: every statement carries no span today,
+//! so errors on statements report (0, 0). Expression-level errors inside a
+//! named binding do carry a name that appears in the message.
 
-use std::collections::HashMap;
 use crate::ast::*;
+use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -23,8 +23,8 @@ use crate::ast::*;
 #[derive(Debug, Clone)]
 pub struct SemanticError {
     pub message: String,
-    pub line:    usize,
-    pub column:  usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 impl std::fmt::Display for SemanticError {
@@ -32,7 +32,11 @@ impl std::fmt::Display for SemanticError {
         if self.line == 0 {
             write!(f, "semantic error: {}", self.message)
         } else {
-            write!(f, "{}:{}: semantic error: {}", self.line, self.column, self.message)
+            write!(
+                f,
+                "{}:{}: semantic error: {}",
+                self.line, self.column, self.message
+            )
         }
     }
 }
@@ -59,11 +63,11 @@ const BUILTINS: &[&str] = &["write", "writeln", "read"];
 
 pub struct Checker {
     /// Stack of variable scopes; outermost is index 0.
-    scopes:    Vec<VarEnv>,
+    scopes: Vec<VarEnv>,
     /// All user-declared functions (first pass collects them all up front).
     functions: HashMap<String, FunSig>,
     /// Errors accumulated during the walk.
-    errors:    Vec<SemanticError>,
+    errors: Vec<SemanticError>,
     /// How many loops deep we currently are (for break/continue validation).
     loop_depth: usize,
     switch_depth: usize,
@@ -76,12 +80,12 @@ pub struct Checker {
 impl Checker {
     pub fn new() -> Self {
         Checker {
-            scopes:          vec![HashMap::new()],
-            functions:       HashMap::new(),
-            errors:          Vec::new(),
-            loop_depth:      0,
-            switch_depth:    0,
-            in_function:     false,
+            scopes: vec![HashMap::new()],
+            functions: HashMap::new(),
+            errors: Vec::new(),
+            loop_depth: 0,
+            switch_depth: 0,
+            in_function: false,
             expected_return: None,
         }
     }
@@ -96,9 +100,12 @@ impl Checker {
         // First pass: collect all function signatures so forward calls work.
         for stmt in &program.body {
             if let Stmt::FunDecl { name, params, .. } = stmt {
-                self.functions.insert(name.clone(), FunSig {
-                    params:      params.clone(),
-                });
+                self.functions.insert(
+                    name.clone(),
+                    FunSig {
+                        params: params.clone(),
+                    },
+                );
             }
         }
 
@@ -148,8 +155,8 @@ impl Checker {
     fn error(&mut self, message: impl Into<String>) {
         self.errors.push(SemanticError {
             message: message.into(),
-            line:    0,
-            column:  0,
+            line: 0,
+            column: 0,
         });
     }
 
@@ -159,7 +166,12 @@ impl Checker {
 
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::VarDecl { name, type_ann, initialiser, .. } => {
+            Stmt::VarDecl {
+                name,
+                type_ann,
+                initialiser,
+                ..
+            } => {
                 // Check the initialiser expression first (before binding the name,
                 // so `let x = x;` is caught as undefined on the RHS).
                 if let Some(init) = initialiser {
@@ -187,25 +199,41 @@ impl Checker {
                 }
             }
 
-            Stmt::If { condition, then_body, elif_arms, else_body, .. } => {
+            Stmt::If {
+                condition,
+                then_body,
+                elif_arms,
+                else_body,
+                ..
+            } => {
                 self.check_expr(condition);
                 self.push_scope();
-                for s in then_body { self.check_stmt(s); }
+                for s in then_body {
+                    self.check_stmt(s);
+                }
                 self.pop_scope();
                 for arm in elif_arms {
                     self.check_expr(&arm.condition);
                     self.push_scope();
-                    for s in &arm.body { self.check_stmt(s); }
+                    for s in &arm.body {
+                        self.check_stmt(s);
+                    }
                     self.pop_scope();
                 }
                 if let Some(body) = else_body {
                     self.push_scope();
-                    for s in body { self.check_stmt(s); }
+                    for s in body {
+                        self.check_stmt(s);
+                    }
                     self.pop_scope();
                 }
             }
 
-            Stmt::Switch { expression, cases, default } => {
+            Stmt::Switch {
+                expression,
+                cases,
+                default,
+            } => {
                 self.check_expr(expression);
                 let switch_type = self.infer_type(expression);
                 self.switch_depth += 1;
@@ -225,72 +253,104 @@ impl Checker {
                         }
                     }
                     self.push_scope();
-                    for s in &case.body { self.check_stmt(s); }
+                    for s in &case.body {
+                        self.check_stmt(s);
+                    }
                     self.pop_scope();
                 }
                 if let Some(body) = default {
                     self.push_scope();
-                    for s in body { self.check_stmt(s); }
+                    for s in body {
+                        self.check_stmt(s);
+                    }
                     self.pop_scope();
                 }
                 self.switch_depth -= 1;
             }
 
-            Stmt::ForRange { var, from, to, body, .. } => {
+            Stmt::ForRange {
+                var,
+                from,
+                to,
+                body,
+                ..
+            } => {
                 self.check_expr(from);
                 self.check_expr(to);
                 self.push_scope();
                 self.declare_var(var, Some(CyType::Int));
                 self.loop_depth += 1;
-                for s in body { self.check_stmt(s); }
+                for s in body {
+                    self.check_stmt(s);
+                }
                 self.loop_depth -= 1;
                 self.pop_scope();
             }
 
-            Stmt::ForC { init, cond, update, body, .. } => {
+            Stmt::ForC {
+                init,
+                cond,
+                update,
+                body,
+                ..
+            } => {
                 self.push_scope();
                 self.check_stmt(init);
                 self.check_expr(cond);
                 self.loop_depth += 1;
-                for s in body { self.check_stmt(s); }
+                for s in body {
+                    self.check_stmt(s);
+                }
                 self.loop_depth -= 1;
                 self.check_stmt(update);
                 self.pop_scope();
             }
 
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 self.check_expr(condition);
                 self.push_scope();
                 self.loop_depth += 1;
-                for s in body { self.check_stmt(s); }
+                for s in body {
+                    self.check_stmt(s);
+                }
                 self.loop_depth -= 1;
                 self.pop_scope();
             }
 
-            Stmt::FunDecl { name, params, return_type, body, .. } => {
+            Stmt::FunDecl {
+                name,
+                params,
+                return_type,
+                body,
+                ..
+            } => {
                 // Save outer function context
-                let outer_in_function     = self.in_function;
+                let outer_in_function = self.in_function;
                 let outer_expected_return = self.expected_return.clone();
-                let outer_loop_depth      = self.loop_depth;
-                let outer_switch_depth    = self.switch_depth;
+                let outer_loop_depth = self.loop_depth;
+                let outer_switch_depth = self.switch_depth;
 
-                self.in_function     = true;
+                self.in_function = true;
                 self.expected_return = return_type.clone();
-                self.loop_depth      = 0; // loops inside a fun start fresh
-                self.switch_depth    = 0; // switches inside a fun start fresh
+                self.loop_depth = 0; // loops inside a fun start fresh
+                self.switch_depth = 0; // switches inside a fun start fresh
 
                 self.push_scope();
                 for param in params {
                     self.declare_var(&param.name, Some(param.type_ann.clone()));
                 }
-                for s in body { self.check_stmt(s); }
+                for s in body {
+                    self.check_stmt(s);
+                }
                 self.pop_scope();
 
                 // Restore
-                self.in_function     = outer_in_function;
+                self.in_function = outer_in_function;
                 self.expected_return = outer_expected_return;
-                self.loop_depth      = outer_loop_depth;
-                self.switch_depth    = outer_switch_depth;
+                self.loop_depth = outer_loop_depth;
+                self.switch_depth = outer_switch_depth;
 
                 let _ = name; // name is already registered in the pre-pass
             }
@@ -308,7 +368,7 @@ impl Checker {
                 if self.loop_depth == 0 && self.switch_depth == 0 {
                     match label {
                         Some(l) => self.error(format!("`break {}` used outside of a loop", l)),
-                        None    => self.error("`break` used outside of a loop"),
+                        None => self.error("`break` used outside of a loop"),
                     }
                 }
             }
@@ -317,7 +377,7 @@ impl Checker {
                 if self.loop_depth == 0 {
                     match label {
                         Some(l) => self.error(format!("`continue {}` used outside of a loop", l)),
-                        None    => self.error("`continue` used outside of a loop"),
+                        None => self.error("`continue` used outside of a loop"),
                     }
                 }
             }
@@ -335,9 +395,14 @@ impl Checker {
     fn check_expr(&mut self, expr: &Expr) {
         match expr {
             // Literals are always fine
-            Expr::IntLit(_) | Expr::LongLit(_) | Expr::FloatLit(_)
-            | Expr::StringLit(_) | Expr::CharLit(_) | Expr::BoolLit(_)
-            | Expr::NullLit | Expr::EmptyLit => {}
+            Expr::IntLit(_)
+            | Expr::LongLit(_)
+            | Expr::FloatLit(_)
+            | Expr::StringLit(_)
+            | Expr::CharLit(_)
+            | Expr::BoolLit(_)
+            | Expr::NullLit
+            | Expr::EmptyLit => {}
 
             Expr::Ident(name) => {
                 if !self.lookup_var(name) {
@@ -373,11 +438,15 @@ impl Checker {
             }
 
             Expr::ArrayLit(elems) => {
-                for e in elems { self.check_expr(e); }
+                for e in elems {
+                    self.check_expr(e);
+                }
             }
 
             Expr::SetLit(elems) => {
-                for e in elems { self.check_expr(e); }
+                for e in elems {
+                    self.check_expr(e);
+                }
             }
 
             Expr::DictLit(pairs) => {
@@ -399,7 +468,9 @@ impl Checker {
 
     fn check_call(&mut self, name: &str, args: &[Expr]) {
         // Always check all argument expressions first.
-        for arg in args { self.check_expr(arg); }
+        for arg in args {
+            self.check_expr(arg);
+        }
 
         // `read` is magic — it takes exactly one string prompt argument.
         if name == "read" {
@@ -446,16 +517,19 @@ impl Checker {
 
     fn infer_type(&self, expr: &Expr) -> Option<CyType> {
         match expr {
-            Expr::IntLit(_)    => Some(CyType::Int),
-            Expr::LongLit(_)   => Some(CyType::Long),
-            Expr::FloatLit(_)  => Some(CyType::Float),
-            Expr::BoolLit(_)   => Some(CyType::Bool),
-            Expr::CharLit(_)   => Some(CyType::Char),
+            Expr::IntLit(_) => Some(CyType::Int),
+            Expr::LongLit(_) => Some(CyType::Long),
+            Expr::FloatLit(_) => Some(CyType::Float),
+            Expr::BoolLit(_) => Some(CyType::Bool),
+            Expr::CharLit(_) => Some(CyType::Char),
             Expr::StringLit(_) => Some(CyType::StringType),
-            Expr::NullLit      => Some(CyType::Null),
-            Expr::Ident(n)     => self.var_type(n),
-            Expr::Grouped(e)   => self.infer_type(e),
-            Expr::UnaryOp { op: UnaryOp::Neg, expr } => self.infer_type(expr),
+            Expr::NullLit => Some(CyType::Null),
+            Expr::Ident(n) => self.var_type(n),
+            Expr::Grouped(e) => self.infer_type(e),
+            Expr::UnaryOp {
+                op: UnaryOp::Neg,
+                expr,
+            } => self.infer_type(expr),
             _ => None, // too complex to infer without a full type-system
         }
     }
@@ -464,7 +538,10 @@ impl Checker {
         match expr {
             Expr::IntLit(_) | Expr::LongLit(_) | Expr::CharLit(_) | Expr::BoolLit(_) => true,
             Expr::Grouped(inner) => Self::is_switch_constant(inner),
-            Expr::UnaryOp { op: UnaryOp::Neg, expr } => Self::is_switch_constant(expr),
+            Expr::UnaryOp {
+                op: UnaryOp::Neg,
+                expr,
+            } => Self::is_switch_constant(expr),
             _ => false,
         }
     }
@@ -493,7 +570,10 @@ impl Checker {
         }
 
         // Bitwise ops require integer types.
-        if matches!(op, BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::Shl | BinaryOp::Shr) {
+        if matches!(
+            op,
+            BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::Shl | BinaryOp::Shr
+        ) {
             let l_int = matches!(lty, CyType::Int | CyType::Long);
             let r_int = matches!(rty, CyType::Int | CyType::Long);
             if !l_int || !r_int {
