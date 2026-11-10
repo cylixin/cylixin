@@ -205,7 +205,7 @@ fn cmd_build(args: &[String]) {
             "-Wno-override-module",
             "-mllvm", "-opaque-pointers",
             &ir_path,
-            &runtime_path.to_string_lossy().to_string(),
+            runtime_path.to_string_lossy().as_ref(),
             "-o",
             &exe_path,
             "-lm",

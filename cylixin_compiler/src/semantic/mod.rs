@@ -1,17 +1,17 @@
-/// Semantic analysis pass — walks the AST before codegen and catches
-/// common programming mistakes with friendly `line:col: error` messages.
-///
-/// First-pass checks (intentionally limited to avoid over-engineering):
-///   1. Undefined variables (reads a name that hasn't been declared).
-///   2. Undefined functions (calls a function that hasn't been declared or is not a builtin).
-///   3. Wrong number of arguments to a user-defined function.
-///   4. `break` / `continue` outside a loop.
-///   5. `return` outside a function.
-///   6. Type mismatch on assignment and `return` (best-effort; only checks the obvious cases).
-///
-/// Span information is best-effort: every statement carries no span today,
-/// so errors on statements report (0, 0). Expression-level errors inside a
-/// named binding do carry a name that appears in the message.
+//! Semantic analysis pass — walks the AST before codegen and catches
+//! common programming mistakes with friendly `line:col: error` messages.
+//!
+//! First-pass checks (intentionally limited to avoid over-engineering):
+//!   1. Undefined variables (reads a name that hasn't been declared).
+//!   2. Undefined functions (calls a function that hasn't been declared or is not a builtin).
+//!   3. Wrong number of arguments to a user-defined function.
+//!   4. `break` / `continue` outside a loop.
+//!   5. `return` outside a function.
+//!   6. Type mismatch on assignment and `return` (best-effort; only checks the obvious cases).
+//!
+//! Span information is best-effort: every statement carries no span today,
+//! so errors on statements report (0, 0). Expression-level errors inside a
+//! named binding do carry a name that appears in the message.
 
 use std::collections::HashMap;
 use crate::ast::*;

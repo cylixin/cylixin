@@ -2,6 +2,7 @@
 // plus the token definitions that everything else in the compiler depends on.
 
 pub mod token;
+#[allow(clippy::module_inception)]
 pub mod lexer;
 
 // Re-export the most commonly used types so other modules can write
