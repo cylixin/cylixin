@@ -122,11 +122,12 @@ cylixin/
 ├── cylixin_compiler/       # The compiler (Rust)
 │   ├── src/
 │   │   ├── lexer/          # Source text to tokens
-│   │   ├── ast/            # AST node definitions
-│   │   ├── parser/         # Tokens to AST
-│   │   ├── codegen/        # AST to LLVM IR (via inkwell)
-│   │   └── main.rs         # Entry point / demo program
-│   └── runtime.c           # C runtime for sets & dicts
+│   │   ├── ast/             # AST node definitions
+│   │   ├── parser/          # Tokens to AST
+│   │   ├── semantic/        # Semantic analysis
+│   │   ├── codegen/         # AST to LLVM IR (via inkwell)
+│   │   └── main.rs          # Entry point / demo program
+│   └── runtime.c            # C runtime for sets & dicts
 ├── docs/
 │   ├── design_principles.md
 │   ├── syntax.md
