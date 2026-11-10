@@ -1,14 +1,14 @@
-mod lexer;
 mod ast;
+mod codegen;
+mod lexer;
 mod parser;
 mod semantic;
-mod codegen;
 
+use codegen::Compiler;
+use inkwell::context::Context;
 use lexer::Lexer;
 use parser::Parser;
 use semantic::Checker;
-use codegen::Compiler;
-use inkwell::context::Context;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -24,7 +24,7 @@ fn main() {
 
     match args[1].as_str() {
         "build" => cmd_build(&args[2..]),
-        "emit"  => cmd_emit(&args[2..]),
+        "emit" => cmd_emit(&args[2..]),
         "version" | "--version" | "-v" => {
             println!("cylixin {}", VERSION);
         }
@@ -93,21 +93,30 @@ fn compile_source(path: &str) -> String {
         }
     };
 
-    let filename = Path::new(path).file_name().unwrap_or_default().to_string_lossy();
+    let filename = Path::new(path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
     println!("=== Cylixin Compiler ===");
     println!("  Source: {}\n", filename);
 
     // Step 1: Lex
     let tokens = match Lexer::new(&source).tokenize() {
-        Ok(t)  => t,
-        Err(e) => { eprintln!("✗ Lexer error in {}: {}", filename, e); std::process::exit(1); }
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("✗ Lexer error in {}: {}", filename, e);
+            std::process::exit(1);
+        }
     };
     println!("  ✓ Lexed {} tokens", tokens.len());
 
     // Step 2: Parse
     let ast = match Parser::new(tokens).parse() {
-        Ok(a)  => a,
-        Err(e) => { eprintln!("✗ Parser error in {}: {}", filename, e); std::process::exit(1); }
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("✗ Parser error in {}: {}", filename, e);
+            std::process::exit(1);
+        }
     };
     println!("  ✓ Parsed {} top-level statements", ast.body.len());
 
@@ -128,7 +137,10 @@ fn compile_source(path: &str) -> String {
     let mut compiler = Compiler::new(&context);
     let ir = match compiler.compile(&ast) {
         Ok(ir) => ir,
-        Err(e) => { eprintln!("✗ Codegen error in {}: {}", filename, e); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("✗ Codegen error in {}: {}", filename, e);
+            std::process::exit(1);
+        }
     };
     println!("  ✓ Generated LLVM IR\n");
 
@@ -143,25 +155,35 @@ fn find_runtime(source_path: &str) -> PathBuf {
     // 1. Same directory as the source file
     let source_dir = Path::new(source_path).parent().unwrap_or(Path::new("."));
     let candidate = source_dir.join("runtime.c");
-    if candidate.exists() { return candidate; }
+    if candidate.exists() {
+        return candidate;
+    }
 
     // 2. Next to the compiler binary
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             let candidate = exe_dir.join("runtime.c");
-            if candidate.exists() { return candidate; }
+            if candidate.exists() {
+                return candidate;
+            }
             // 3. Cargo layout: target/debug/../.. = project root
             let candidate = exe_dir.join("../../runtime.c");
-            if candidate.exists() { return candidate; }
+            if candidate.exists() {
+                return candidate;
+            }
         }
     }
 
     // 4. CWD
     let candidate = PathBuf::from("runtime.c");
-    if candidate.exists() { return candidate; }
+    if candidate.exists() {
+        return candidate;
+    }
 
     eprintln!("✗ Could not find runtime.c — looked next to source, executable, and CWD.");
-    eprintln!("  Place runtime.c in the same directory as your .cyx file, or in the compiler directory.");
+    eprintln!(
+        "  Place runtime.c in the same directory as your .cyx file, or in the compiler directory."
+    );
     std::process::exit(1);
 }
 
@@ -169,7 +191,10 @@ fn cmd_emit(args: &[String]) {
     let (source_file, output_override) = parse_file_args(args);
     let ir = compile_source(&source_file);
 
-    let stem = Path::new(&source_file).file_stem().unwrap_or_default().to_string_lossy();
+    let stem = Path::new(&source_file)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
     let ir_path = output_override.unwrap_or_else(|| format!("{}.ll", stem));
 
     std::fs::write(&ir_path, &ir).unwrap_or_else(|e| {
@@ -183,7 +208,10 @@ fn cmd_build(args: &[String]) {
     let (source_file, output_override) = parse_file_args(args);
     let ir = compile_source(&source_file);
 
-    let stem = Path::new(&source_file).file_stem().unwrap_or_default().to_string_lossy();
+    let stem = Path::new(&source_file)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
     let ir_path = format!("{}.ll", stem);
     let exe_path = output_override.unwrap_or_else(|| stem.to_string());
 
@@ -203,7 +231,8 @@ fn cmd_build(args: &[String]) {
     let status = Command::new("clang")
         .args([
             "-Wno-override-module",
-            "-mllvm", "-opaque-pointers",
+            "-mllvm",
+            "-opaque-pointers",
             &ir_path,
             runtime_path.to_string_lossy().as_ref(),
             "-o",
@@ -222,15 +251,22 @@ fn cmd_build(args: &[String]) {
         Ok(s) => {
             println!(" failed");
             eprintln!("\n✗ clang exited with status {}", s);
-            eprintln!("  The LLVM IR has been kept at '{}' for inspection.", ir_path);
+            eprintln!(
+                "  The LLVM IR has been kept at '{}' for inspection.",
+                ir_path
+            );
             std::process::exit(1);
         }
         Err(e) => {
             println!(" failed");
             eprintln!("\n✗ Could not run clang: {}", e);
             eprintln!("  Make sure clang is installed and in your PATH.");
-            eprintln!("  You can link manually: clang {} {} -o {} -lm",
-                ir_path, runtime_path.display(), exe_path);
+            eprintln!(
+                "  You can link manually: clang {} {} -o {} -lm",
+                ir_path,
+                runtime_path.display(),
+                exe_path
+            );
             std::process::exit(1);
         }
     }
