@@ -24,7 +24,7 @@ For the philosophy behind these design choices, see [Design Principles](docs/des
 
 ## Project Status
 
-Cylixin is **pre-alpha**. There is no package manager and no standard library beyond `write`/`writeln`, and there's no installable release yet: you build the compiler from source and invoke it directly. That said, the core pipeline is functional today:
+Cylixin is **pre-alpha**. There is no package manager and no standard library beyond `write`/`writeln` and `@read`, and there's no installable release yet: you build the compiler from source and invoke it directly. That said, the core pipeline is functional today:
 
 | Stage | Status |
 |---|---|
@@ -32,7 +32,7 @@ Cylixin is **pre-alpha**. There is no package manager and no standard library be
 | Parser → AST | ✅ Working |
 | LLVM IR codegen | ✅ Working (ints, longs, floats, bools, chars, strings, arrays, sets, dicts, functions) |
 | Native compilation | ✅ Working, via `clang`/`llc` on the emitted `.ll` file |
-| Standard library | 🚧 `write` / `writeln` only |
+| Standard library | 🚧 `write` / `writeln` and `@read` |
 | Package manager | 📋 Planned, not started |
 
 See [Architecture](docs/architecture.md) for how the pieces fit together, and [Syntax Reference](docs/syntax.md) for exactly what the language supports right now, including a few rough edges that are still being ironed out.
