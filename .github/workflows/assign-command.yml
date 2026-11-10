@@ -1,0 +1,31 @@
+name: Assign command
+
+# Lets people assign issues from a comment:
+#   /assign-me       assign yourself
+#   /assign @user    assign someone else (maintainers only)
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  assign:
+    # Skip comments on pull requests and ones that can't contain a command.
+    if: ${{ !github.event.issue.pull_request && contains(github.event.comment.body, '/assign') }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: assign-issue-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    steps:
+      # issue_comment always runs on the default branch, so this checks out trusted code.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = require('./.github/scripts/assign-command.js');
+            await run({ github, context, core });
