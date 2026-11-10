@@ -1,25 +1,41 @@
-use crate::lexer::token::{Token, TokenKind};
 use crate::ast::*;
+use crate::lexer::token::{Token, TokenKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
-    UnexpectedToken { expected: String, found: String, line: usize, column: usize },
-    UnexpectedEof   { context: String },
+    UnexpectedToken {
+        expected: String,
+        found: String,
+        line: usize,
+        column: usize,
+    },
+    UnexpectedEof {
+        context: String,
+    },
 }
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::UnexpectedToken { expected, found, line, column } =>
-                write!(f, "Expected {} but found {} at {}:{}", expected, found, line, column),
-            ParseError::UnexpectedEof { context } =>
-                write!(f, "Unexpected end of file while parsing {}", context),
+            ParseError::UnexpectedToken {
+                expected,
+                found,
+                line,
+                column,
+            } => write!(
+                f,
+                "Expected {} but found {} at {}:{}",
+                expected, found, line, column
+            ),
+            ParseError::UnexpectedEof { context } => {
+                write!(f, "Unexpected end of file while parsing {}", context)
+            }
         }
     }
 }
 
 pub struct Parser {
-    tokens:  Vec<Token>,
+    tokens: Vec<Token>,
     current: usize,
 }
 
@@ -40,13 +56,13 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<Stmt, ParseError> {
         match self.peek_kind() {
             TokenKind::Let | TokenKind::Var | TokenKind::Const => self.parse_var_decl(),
-            TokenKind::If     => self.parse_if(),
+            TokenKind::If => self.parse_if(),
             TokenKind::Switch => self.parse_switch(),
-            TokenKind::For    => self.parse_for(),
-            TokenKind::While  => self.parse_while(),
-            TokenKind::Fun    => self.parse_fun_decl(),
+            TokenKind::For => self.parse_for(),
+            TokenKind::While => self.parse_while(),
+            TokenKind::Fun => self.parse_fun_decl(),
             TokenKind::Return => self.parse_return(),
-            TokenKind::Break    => self.parse_break(),
+            TokenKind::Break => self.parse_break(),
             TokenKind::Continue => self.parse_continue(),
             TokenKind::Identifier(_) => self.parse_assign_or_expr_stmt(),
             TokenKind::At => {
@@ -64,8 +80,8 @@ impl Parser {
 
     fn parse_var_decl(&mut self) -> Result<Stmt, ParseError> {
         let kind = match self.advance().kind.clone() {
-            TokenKind::Let   => VarKind::Let,
-            TokenKind::Var   => VarKind::Var,
+            TokenKind::Let => VarKind::Let,
+            TokenKind::Var => VarKind::Var,
             TokenKind::Const => VarKind::Const,
             _ => unreachable!(),
         };
@@ -87,7 +103,12 @@ impl Parser {
         };
 
         self.expect_semicolon()?;
-        Ok(Stmt::VarDecl { kind, name, type_ann, initialiser })
+        Ok(Stmt::VarDecl {
+            kind,
+            name,
+            type_ann,
+            initialiser,
+        })
     }
 
     fn parse_assign_or_expr_stmt(&mut self) -> Result<Stmt, ParseError> {
@@ -98,18 +119,30 @@ impl Parser {
                 self.advance();
                 let index = self.parse_expression()?;
                 self.expect(TokenKind::RBracket, "]")?;
-                let op    = self.parse_assign_op()?;
+                let op = self.parse_assign_op()?;
                 let value = self.parse_expression()?;
                 self.expect_semicolon()?;
-                Ok(Stmt::Assign { target: AssignTarget::Index { name, index }, op, value })
+                Ok(Stmt::Assign {
+                    target: AssignTarget::Index { name, index },
+                    op,
+                    value,
+                })
             }
-            TokenKind::Eq     | TokenKind::PlusEq  | TokenKind::MinusEq |
-            TokenKind::StarEq | TokenKind::SlashEq | TokenKind::PercentEq |
-            TokenKind::StarStarEq => {
-                let op    = self.parse_assign_op()?;
+            TokenKind::Eq
+            | TokenKind::PlusEq
+            | TokenKind::MinusEq
+            | TokenKind::StarEq
+            | TokenKind::SlashEq
+            | TokenKind::PercentEq
+            | TokenKind::StarStarEq => {
+                let op = self.parse_assign_op()?;
                 let value = self.parse_expression()?;
                 self.expect_semicolon()?;
-                Ok(Stmt::Assign { target: AssignTarget::Ident(name), op, value })
+                Ok(Stmt::Assign {
+                    target: AssignTarget::Ident(name),
+                    op,
+                    value,
+                })
             }
             _ => {
                 // not an assignment - treat as expression statement
@@ -122,20 +155,20 @@ impl Parser {
 
     fn parse_assign_op(&mut self) -> Result<AssignOp, ParseError> {
         let op = match self.peek_kind() {
-            TokenKind::Eq         => AssignOp::Assign,
-            TokenKind::PlusEq     => AssignOp::AddAssign,
-            TokenKind::MinusEq    => AssignOp::SubAssign,
-            TokenKind::StarEq     => AssignOp::MulAssign,
-            TokenKind::SlashEq    => AssignOp::DivAssign,
-            TokenKind::PercentEq  => AssignOp::ModAssign,
+            TokenKind::Eq => AssignOp::Assign,
+            TokenKind::PlusEq => AssignOp::AddAssign,
+            TokenKind::MinusEq => AssignOp::SubAssign,
+            TokenKind::StarEq => AssignOp::MulAssign,
+            TokenKind::SlashEq => AssignOp::DivAssign,
+            TokenKind::PercentEq => AssignOp::ModAssign,
             TokenKind::StarStarEq => AssignOp::PowAssign,
             other => {
                 let tok = self.peek();
                 return Err(ParseError::UnexpectedToken {
                     expected: "assignment operator".into(),
-                    found:    format!("{:?}", other),
-                    line:     tok.span.line,
-                    column:   tok.span.column,
+                    found: format!("{:?}", other),
+                    line: tok.span.line,
+                    column: tok.span.column,
                 });
             }
         };
@@ -149,7 +182,7 @@ impl Parser {
         self.expect(TokenKind::Then, "then")?;
 
         let terminators = &[TokenKind::Elif, TokenKind::Else, TokenKind::EndIf];
-        let then_body   = self.parse_block(terminators)?;
+        let then_body = self.parse_block(terminators)?;
 
         let mut elif_arms = Vec::new();
         while self.check(&TokenKind::Elif) {
@@ -157,7 +190,10 @@ impl Parser {
             let cond = self.parse_expression()?;
             self.expect(TokenKind::Then, "then")?;
             let body = self.parse_block(terminators)?;
-            elif_arms.push(ElifArm { condition: cond, body });
+            elif_arms.push(ElifArm {
+                condition: cond,
+                body,
+            });
         }
 
         let else_body = if self.check(&TokenKind::Else) {
@@ -170,7 +206,13 @@ impl Parser {
         self.expect(TokenKind::EndIf, "endif")?;
         let end_when = self.parse_end_when()?;
 
-        Ok(Stmt::If { condition, then_body, elif_arms, else_body, end_when })
+        Ok(Stmt::If {
+            condition,
+            then_body,
+            elif_arms,
+            else_body,
+            end_when,
+        })
     }
 
     fn parse_switch(&mut self) -> Result<Stmt, ParseError> {
@@ -187,7 +229,8 @@ impl Parser {
                 values.push(self.parse_expression()?);
             }
             self.expect(TokenKind::Then, "then")?;
-            let body = self.parse_block(&[TokenKind::Case, TokenKind::Default, TokenKind::EndSwitch])?;
+            let body =
+                self.parse_block(&[TokenKind::Case, TokenKind::Default, TokenKind::EndSwitch])?;
             cases.push(SwitchCase { values, body });
         }
 
@@ -200,13 +243,17 @@ impl Parser {
         };
 
         self.expect(TokenKind::EndSwitch, "endswitch")?;
-        Ok(Stmt::Switch { expression, cases, default })
+        Ok(Stmt::Switch {
+            expression,
+            cases,
+            default,
+        })
     }
 
     fn parse_for(&mut self) -> Result<Stmt, ParseError> {
         self.expect(TokenKind::For, "for")?;
         let label = self.try_parse_label();
-        let var   = self.expect_identifier("loop variable")?;
+        let var = self.expect_identifier("loop variable")?;
 
         if self.check(&TokenKind::From) {
             self.advance();
@@ -215,53 +262,74 @@ impl Parser {
             let to = self.parse_expression()?;
             self.expect(TokenKind::Then, "then")?;
 
-            let body     = self.parse_block(&[TokenKind::EndFor])?;
+            let body = self.parse_block(&[TokenKind::EndFor])?;
             self.expect(TokenKind::EndFor, "endfor")?;
             let end_when = self.parse_end_when()?;
 
-            Ok(Stmt::ForRange { var, from, to, body, label, end_when })
+            Ok(Stmt::ForRange {
+                var,
+                from,
+                to,
+                body,
+                label,
+                end_when,
+            })
         } else {
             // C-style:  for i = 0; i < n; i += 1 then
-            let init_op  = self.parse_assign_op()?;
+            let init_op = self.parse_assign_op()?;
             let init_val = self.parse_expression()?;
             self.expect(TokenKind::Semicolon, ";")?;
 
             let init = Box::new(Stmt::Assign {
                 target: AssignTarget::Ident(var.clone()),
-                op: init_op, value: init_val,
+                op: init_op,
+                value: init_val,
             });
 
             let cond = self.parse_expression()?;
             self.expect(TokenKind::Semicolon, ";")?;
 
             let update_name = self.expect_identifier("update variable")?;
-            let update_op   = self.parse_assign_op()?;
-            let update_val  = self.parse_expression()?;
+            let update_op = self.parse_assign_op()?;
+            let update_val = self.parse_expression()?;
             let update = Box::new(Stmt::Assign {
                 target: AssignTarget::Ident(update_name),
-                op: update_op, value: update_val,
+                op: update_op,
+                value: update_val,
             });
 
             self.expect(TokenKind::Then, "then")?;
-            let body     = self.parse_block(&[TokenKind::EndFor])?;
+            let body = self.parse_block(&[TokenKind::EndFor])?;
             self.expect(TokenKind::EndFor, "endfor")?;
             let end_when = self.parse_end_when()?;
 
-            Ok(Stmt::ForC { init, cond, update, body, label, end_when })
+            Ok(Stmt::ForC {
+                init,
+                cond,
+                update,
+                body,
+                label,
+                end_when,
+            })
         }
     }
 
     fn parse_while(&mut self) -> Result<Stmt, ParseError> {
         self.expect(TokenKind::While, "while")?;
-        let label     = self.try_parse_label();
+        let label = self.try_parse_label();
         let condition = self.parse_expression()?;
         self.expect(TokenKind::Then, "then")?;
 
-        let body     = self.parse_block(&[TokenKind::EndWhile])?;
+        let body = self.parse_block(&[TokenKind::EndWhile])?;
         self.expect(TokenKind::EndWhile, "endwhile")?;
         let end_when = self.parse_end_when()?;
 
-        Ok(Stmt::While { condition, body, label, end_when })
+        Ok(Stmt::While {
+            condition,
+            body,
+            label,
+            end_when,
+        })
     }
 
     fn parse_fun_decl(&mut self) -> Result<Stmt, ParseError> {
@@ -284,18 +352,28 @@ impl Parser {
         self.expect(TokenKind::EndFun, "endfun")?;
         let end_when = self.parse_end_when()?;
 
-        Ok(Stmt::FunDecl { name, params, return_type, body, end_when })
+        Ok(Stmt::FunDecl {
+            name,
+            params,
+            return_type,
+            body,
+            end_when,
+        })
     }
 
     fn parse_params(&mut self) -> Result<Vec<Param>, ParseError> {
         let mut params = Vec::new();
-        if self.check(&TokenKind::RParen) { return Ok(params); }
+        if self.check(&TokenKind::RParen) {
+            return Ok(params);
+        }
         loop {
-            let name     = self.expect_identifier("parameter name")?;
+            let name = self.expect_identifier("parameter name")?;
             self.expect(TokenKind::Colon, ":")?;
             let type_ann = self.parse_type()?;
             params.push(Param { name, type_ann });
-            if !self.check(&TokenKind::Comma) { break; }
+            if !self.check(&TokenKind::Comma) {
+                break;
+            }
             self.advance();
         }
         Ok(params)
@@ -303,8 +381,11 @@ impl Parser {
 
     fn parse_return(&mut self) -> Result<Stmt, ParseError> {
         self.expect(TokenKind::Return, "return")?;
-        let value = if self.check(&TokenKind::Semicolon) { None }
-                    else { Some(self.parse_expression()?) };
+        let value = if self.check(&TokenKind::Semicolon) {
+            None
+        } else {
+            Some(self.parse_expression()?)
+        };
         self.expect_semicolon()?;
         Ok(Stmt::Return(value))
     }
@@ -337,16 +418,22 @@ impl Parser {
         let mut stmts = Vec::new();
         loop {
             if self.is_at_end() {
-                return Err(ParseError::UnexpectedEof { context: "block body".into() });
+                return Err(ParseError::UnexpectedEof {
+                    context: "block body".into(),
+                });
             }
-            if terminators.iter().any(|t| self.check(t)) { break; }
+            if terminators.iter().any(|t| self.check(t)) {
+                break;
+            }
             stmts.push(self.parse_statement()?);
         }
         Ok(stmts)
     }
 
     fn parse_end_when(&mut self) -> Result<Option<EndWhen>, ParseError> {
-        if !self.check(&TokenKind::When) { return Ok(None); }
+        if !self.check(&TokenKind::When) {
+            return Ok(None);
+        }
         self.advance();
         self.expect(TokenKind::LParen, "(")?;
         let condition = self.parse_expression()?;
@@ -390,10 +477,18 @@ impl Parser {
                 _ => break,
             };
             self.advance();
-            let rhs_prec = if self.is_right_assoc(&op) { prec } else { prec + 1 };
-            let right    = self.parse_unary()?;
-            let right    = self.parse_binary_from(right, rhs_prec)?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            let rhs_prec = if self.is_right_assoc(&op) {
+                prec
+            } else {
+                prec + 1
+            };
+            let right = self.parse_unary()?;
+            let right = self.parse_binary_from(right, rhs_prec)?;
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -403,7 +498,11 @@ impl Parser {
         while self.check(&TokenKind::PipePipe) {
             self.advance();
             let right = self.parse_and()?;
-            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::Or, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op: BinaryOp::Or,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -413,7 +512,11 @@ impl Parser {
         while self.check(&TokenKind::AmpAmp) {
             self.advance();
             let right = self.parse_bitwise_or()?;
-            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::And, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op: BinaryOp::And,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -423,7 +526,11 @@ impl Parser {
         while self.check(&TokenKind::Pipe) {
             self.advance();
             let right = self.parse_bitwise_and()?;
-            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::BitOr, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op: BinaryOp::BitOr,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -433,7 +540,11 @@ impl Parser {
         while self.check(&TokenKind::Amp) {
             self.advance();
             let right = self.parse_equality()?;
-            left = Expr::BinaryOp { left: Box::new(left), op: BinaryOp::BitAnd, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op: BinaryOp::BitAnd,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -443,13 +554,17 @@ impl Parser {
         loop {
             let op = match self.peek_kind() {
                 TokenKind::EqEqEq => BinaryOp::StrictEq,
-                TokenKind::EqEq   => BinaryOp::Eq,
+                TokenKind::EqEq => BinaryOp::Eq,
                 TokenKind::BangEq => BinaryOp::NotEq,
                 _ => break,
             };
             self.advance();
             let right = self.parse_comparison()?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -458,15 +573,19 @@ impl Parser {
         let mut left = self.parse_shift()?;
         loop {
             let op = match self.peek_kind() {
-                TokenKind::Less      => BinaryOp::Lt,
-                TokenKind::Greater   => BinaryOp::Gt,
-                TokenKind::LessEq    => BinaryOp::LtEq,
+                TokenKind::Less => BinaryOp::Lt,
+                TokenKind::Greater => BinaryOp::Gt,
+                TokenKind::LessEq => BinaryOp::LtEq,
                 TokenKind::GreaterEq => BinaryOp::GtEq,
                 _ => break,
             };
             self.advance();
             let right = self.parse_shift()?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -475,13 +594,17 @@ impl Parser {
         let mut left = self.parse_additive()?;
         loop {
             let op = match self.peek_kind() {
-                TokenKind::LeftShift  => BinaryOp::Shl,
+                TokenKind::LeftShift => BinaryOp::Shl,
                 TokenKind::RightShift => BinaryOp::Shr,
                 _ => break,
             };
             self.advance();
             let right = self.parse_additive()?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -490,13 +613,17 @@ impl Parser {
         let mut left = self.parse_multiplicative()?;
         loop {
             let op = match self.peek_kind() {
-                TokenKind::Plus  => BinaryOp::Add,
+                TokenKind::Plus => BinaryOp::Add,
                 TokenKind::Minus => BinaryOp::Sub,
                 _ => break,
             };
             self.advance();
             let right = self.parse_multiplicative()?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -505,14 +632,18 @@ impl Parser {
         let mut left = self.parse_exponential()?;
         loop {
             let op = match self.peek_kind() {
-                TokenKind::Star    => BinaryOp::Mul,
-                TokenKind::Slash   => BinaryOp::Div,
+                TokenKind::Star => BinaryOp::Mul,
+                TokenKind::Slash => BinaryOp::Div,
                 TokenKind::Percent => BinaryOp::Mod,
                 _ => break,
             };
             self.advance();
             let right = self.parse_exponential()?;
-            left = Expr::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+            left = Expr::BinaryOp {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
         Ok(left)
     }
@@ -523,7 +654,11 @@ impl Parser {
         if self.check(&TokenKind::StarStar) {
             self.advance();
             let exp = self.parse_exponential()?;
-            return Ok(Expr::BinaryOp { left: Box::new(base), op: BinaryOp::Pow, right: Box::new(exp) });
+            return Ok(Expr::BinaryOp {
+                left: Box::new(base),
+                op: BinaryOp::Pow,
+                right: Box::new(exp),
+            });
         }
         Ok(base)
     }
@@ -532,11 +667,17 @@ impl Parser {
         match self.peek_kind() {
             TokenKind::Bang => {
                 self.advance();
-                Ok(Expr::UnaryOp { op: UnaryOp::Not, expr: Box::new(self.parse_unary()?) })
+                Ok(Expr::UnaryOp {
+                    op: UnaryOp::Not,
+                    expr: Box::new(self.parse_unary()?),
+                })
             }
             TokenKind::Minus => {
                 self.advance();
-                Ok(Expr::UnaryOp { op: UnaryOp::Neg, expr: Box::new(self.parse_unary()?) })
+                Ok(Expr::UnaryOp {
+                    op: UnaryOp::Neg,
+                    expr: Box::new(self.parse_unary()?),
+                })
             }
             _ => self.parse_call_or_index(),
         }
@@ -556,7 +697,10 @@ impl Parser {
                 self.advance();
                 let index = self.parse_expression()?;
                 self.expect(TokenKind::RBracket, "]")?;
-                expr = Expr::Index { collection: Box::new(expr), index: Box::new(index) };
+                expr = Expr::Index {
+                    collection: Box::new(expr),
+                    index: Box::new(index),
+                };
             }
             return Ok(expr);
         }
@@ -567,7 +711,10 @@ impl Parser {
             self.advance();
             let index = self.parse_expression()?;
             self.expect(TokenKind::RBracket, "]")?;
-            expr = Expr::Index { collection: Box::new(expr), index: Box::new(index) };
+            expr = Expr::Index {
+                collection: Box::new(expr),
+                index: Box::new(index),
+            };
         }
 
         Ok(expr)
@@ -575,10 +722,14 @@ impl Parser {
 
     fn parse_call_args(&mut self) -> Result<Vec<Expr>, ParseError> {
         let mut args = Vec::new();
-        if self.check(&TokenKind::RParen) { return Ok(args); }
+        if self.check(&TokenKind::RParen) {
+            return Ok(args);
+        }
         loop {
             args.push(self.parse_expression()?);
-            if !self.check(&TokenKind::Comma) { break; }
+            if !self.check(&TokenKind::Comma) {
+                break;
+            }
             self.advance();
         }
         Ok(args)
@@ -587,14 +738,14 @@ impl Parser {
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let tok = self.advance();
         match tok.kind.clone() {
-            TokenKind::IntLiteral(n)    => Ok(Expr::IntLit(n)),
-            TokenKind::LongLiteral(n)   => Ok(Expr::LongLit(n)),
-            TokenKind::FloatLiteral(f)  => Ok(Expr::FloatLit(f)),
+            TokenKind::IntLiteral(n) => Ok(Expr::IntLit(n)),
+            TokenKind::LongLiteral(n) => Ok(Expr::LongLit(n)),
+            TokenKind::FloatLiteral(f) => Ok(Expr::FloatLit(f)),
             TokenKind::StringLiteral(s) => Ok(Expr::StringLit(s)),
-            TokenKind::CharLiteral(c)   => Ok(Expr::CharLit(c)),
-            TokenKind::BoolLiteral(b)   => Ok(Expr::BoolLit(b)),
-            TokenKind::Null             => Ok(Expr::NullLit),
-            TokenKind::Empty            => Ok(Expr::EmptyLit),
+            TokenKind::CharLiteral(c) => Ok(Expr::CharLit(c)),
+            TokenKind::BoolLiteral(b) => Ok(Expr::BoolLit(b)),
+            TokenKind::Null => Ok(Expr::NullLit),
+            TokenKind::Empty => Ok(Expr::EmptyLit),
             TokenKind::Identifier(name) => Ok(Expr::Ident(name)),
 
             TokenKind::LParen => {
@@ -608,7 +759,9 @@ impl Parser {
                 if !self.check(&TokenKind::RBracket) {
                     loop {
                         elements.push(self.parse_expression()?);
-                        if !self.check(&TokenKind::Comma) { break; }
+                        if !self.check(&TokenKind::Comma) {
+                            break;
+                        }
                         self.advance();
                     }
                 }
@@ -634,7 +787,9 @@ impl Parser {
                     let mut pairs = vec![(first, first_val)];
                     while self.check(&TokenKind::Comma) {
                         self.advance();
-                        if self.check(&TokenKind::RBrace) { break; }
+                        if self.check(&TokenKind::RBrace) {
+                            break;
+                        }
                         let k = self.parse_expression()?;
                         self.expect(TokenKind::Colon, ":")?;
                         let v = self.parse_expression()?;
@@ -647,7 +802,9 @@ impl Parser {
                     let mut elements = vec![first];
                     while self.check(&TokenKind::Comma) {
                         self.advance();
-                        if self.check(&TokenKind::RBrace) { break; }
+                        if self.check(&TokenKind::RBrace) {
+                            break;
+                        }
                         elements.push(self.parse_expression()?);
                     }
                     self.expect(TokenKind::RBrace, "}")?;
@@ -657,34 +814,34 @@ impl Parser {
 
             other => Err(ParseError::UnexpectedToken {
                 expected: "expression".into(),
-                found:    format!("{:?}", other),
-                line:     tok.span.line,
-                column:   tok.span.column,
+                found: format!("{:?}", other),
+                line: tok.span.line,
+                column: tok.span.column,
             }),
         }
     }
 
     fn peek_binary_op(&self) -> Option<(BinaryOp, u8)> {
         match self.peek_kind() {
-            TokenKind::PipePipe   => Some((BinaryOp::Or,       1)),
-            TokenKind::AmpAmp     => Some((BinaryOp::And,      2)),
-            TokenKind::Pipe       => Some((BinaryOp::BitOr,    3)),
-            TokenKind::Amp        => Some((BinaryOp::BitAnd,   4)),
-            TokenKind::EqEqEq     => Some((BinaryOp::StrictEq, 5)),
-            TokenKind::EqEq       => Some((BinaryOp::Eq,       5)),
-            TokenKind::BangEq     => Some((BinaryOp::NotEq,    5)),
-            TokenKind::Less       => Some((BinaryOp::Lt,       6)),
-            TokenKind::Greater    => Some((BinaryOp::Gt,       6)),
-            TokenKind::LessEq     => Some((BinaryOp::LtEq,     6)),
-            TokenKind::GreaterEq  => Some((BinaryOp::GtEq,     6)),
-            TokenKind::LeftShift  => Some((BinaryOp::Shl,      7)),
-            TokenKind::RightShift => Some((BinaryOp::Shr,      7)),
-            TokenKind::Plus       => Some((BinaryOp::Add,      8)),
-            TokenKind::Minus      => Some((BinaryOp::Sub,      8)),
-            TokenKind::Star       => Some((BinaryOp::Mul,      9)),
-            TokenKind::Slash      => Some((BinaryOp::Div,      9)),
-            TokenKind::Percent    => Some((BinaryOp::Mod,      9)),
-            TokenKind::StarStar   => Some((BinaryOp::Pow,     10)),
+            TokenKind::PipePipe => Some((BinaryOp::Or, 1)),
+            TokenKind::AmpAmp => Some((BinaryOp::And, 2)),
+            TokenKind::Pipe => Some((BinaryOp::BitOr, 3)),
+            TokenKind::Amp => Some((BinaryOp::BitAnd, 4)),
+            TokenKind::EqEqEq => Some((BinaryOp::StrictEq, 5)),
+            TokenKind::EqEq => Some((BinaryOp::Eq, 5)),
+            TokenKind::BangEq => Some((BinaryOp::NotEq, 5)),
+            TokenKind::Less => Some((BinaryOp::Lt, 6)),
+            TokenKind::Greater => Some((BinaryOp::Gt, 6)),
+            TokenKind::LessEq => Some((BinaryOp::LtEq, 6)),
+            TokenKind::GreaterEq => Some((BinaryOp::GtEq, 6)),
+            TokenKind::LeftShift => Some((BinaryOp::Shl, 7)),
+            TokenKind::RightShift => Some((BinaryOp::Shr, 7)),
+            TokenKind::Plus => Some((BinaryOp::Add, 8)),
+            TokenKind::Minus => Some((BinaryOp::Sub, 8)),
+            TokenKind::Star => Some((BinaryOp::Mul, 9)),
+            TokenKind::Slash => Some((BinaryOp::Div, 9)),
+            TokenKind::Percent => Some((BinaryOp::Mod, 9)),
+            TokenKind::StarStar => Some((BinaryOp::Pow, 10)),
             _ => None,
         }
     }
@@ -696,25 +853,25 @@ impl Parser {
     fn parse_type(&mut self) -> Result<CyType, ParseError> {
         let tok = self.advance();
         match tok.kind.clone() {
-            TokenKind::Int     => Ok(CyType::Int),
-            TokenKind::Long    => Ok(CyType::Long),
-            TokenKind::Float   => Ok(CyType::Float),
+            TokenKind::Int => Ok(CyType::Int),
+            TokenKind::Long => Ok(CyType::Long),
+            TokenKind::Float => Ok(CyType::Float),
             TokenKind::String_ => Ok(CyType::StringType),
-            TokenKind::Char    => Ok(CyType::Char),
-            TokenKind::Bool    => Ok(CyType::Bool),
-            TokenKind::Null    => Ok(CyType::Null),
-            TokenKind::Set     => Ok(CyType::Set(self.try_parse_generic_arg()?.map(Box::new))),
-            TokenKind::Dic     => {
+            TokenKind::Char => Ok(CyType::Char),
+            TokenKind::Bool => Ok(CyType::Bool),
+            TokenKind::Null => Ok(CyType::Null),
+            TokenKind::Set => Ok(CyType::Set(self.try_parse_generic_arg()?.map(Box::new))),
+            TokenKind::Dic => {
                 let (key, val) = self.try_parse_dic_generic_args()?;
                 Ok(CyType::Dic(key.map(Box::new), val.map(Box::new)))
             }
-            TokenKind::Arr     => Ok(CyType::Arr(self.try_parse_generic_arg()?.map(Box::new))),
+            TokenKind::Arr => Ok(CyType::Arr(self.try_parse_generic_arg()?.map(Box::new))),
             TokenKind::Identifier(name) => Ok(CyType::Unknown(name)),
             other => Err(ParseError::UnexpectedToken {
                 expected: "type name".into(),
-                found:    format!("{:?}", other),
-                line:     tok.span.line,
-                column:   tok.span.column,
+                found: format!("{:?}", other),
+                line: tok.span.line,
+                column: tok.span.column,
             }),
         }
     }
@@ -732,7 +889,9 @@ impl Parser {
 
     /// Like `try_parse_generic_arg` but reads two comma-separated types for `dic<K, V>`.
     /// Returns (key_type, val_type) if the `<` is present, both None otherwise.
-    fn try_parse_dic_generic_args(&mut self) -> Result<(Option<CyType>, Option<CyType>), ParseError> {
+    fn try_parse_dic_generic_args(
+        &mut self,
+    ) -> Result<(Option<CyType>, Option<CyType>), ParseError> {
         if !self.check(&TokenKind::Less) {
             return Ok((None, None));
         }
@@ -767,7 +926,9 @@ impl Parser {
 
     fn advance(&mut self) -> Token {
         let tok = self.tokens[self.current].clone();
-        if self.current + 1 < self.tokens.len() { self.current += 1; }
+        if self.current + 1 < self.tokens.len() {
+            self.current += 1;
+        }
         tok
     }
 
@@ -778,9 +939,9 @@ impl Parser {
             let tok = self.peek();
             Err(ParseError::UnexpectedToken {
                 expected: format!("`{}`", name),
-                found:    format!("{:?}", tok.kind),
-                line:     tok.span.line,
-                column:   tok.span.column,
+                found: format!("{:?}", tok.kind),
+                line: tok.span.line,
+                column: tok.span.column,
             })
         }
     }
@@ -798,9 +959,9 @@ impl Parser {
         } else {
             Err(ParseError::UnexpectedToken {
                 expected: format!("identifier ({})", context),
-                found:    format!("{:?}", tok.kind),
-                line:     tok.span.line,
-                column:   tok.span.column,
+                found: format!("{:?}", tok.kind),
+                line: tok.span.line,
+                column: tok.span.column,
             })
         }
     }
@@ -811,15 +972,17 @@ impl Parser {
         let tok = self.peek().clone();
         let name = match &tok.kind {
             TokenKind::Identifier(n) => n.clone(),
-            TokenKind::Read          => "read".into(),
-            TokenKind::Write         => "write".into(),
-            TokenKind::Writeln       => "writeln".into(),
-            _ => return Err(ParseError::UnexpectedToken {
-                expected: "function name".into(),
-                found:    format!("{:?}", tok.kind),
-                line:     tok.span.line,
-                column:   tok.span.column,
-            }),
+            TokenKind::Read => "read".into(),
+            TokenKind::Write => "write".into(),
+            TokenKind::Writeln => "writeln".into(),
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "function name".into(),
+                    found: format!("{:?}", tok.kind),
+                    line: tok.span.line,
+                    column: tok.span.column,
+                })
+            }
         };
         self.advance();
         Ok(name)
@@ -839,7 +1002,13 @@ mod tests {
     #[test]
     fn test_var_decl() {
         let prog = parse("let x: int = 42;");
-        assert!(matches!(&prog.body[0], Stmt::VarDecl { kind: VarKind::Let, .. }));
+        assert!(matches!(
+            &prog.body[0],
+            Stmt::VarDecl {
+                kind: VarKind::Let,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -851,13 +1020,23 @@ mod tests {
     #[test]
     fn test_if_else() {
         let prog = parse("if x > 10 then @writeln(\"big\"); else @writeln(\"small\"); endif");
-        assert!(matches!(&prog.body[0], Stmt::If { else_body: Some(_), .. }));
+        assert!(matches!(
+            &prog.body[0],
+            Stmt::If {
+                else_body: Some(_),
+                ..
+            }
+        ));
     }
 
     #[test]
     fn test_switch_case() {
-        let prog = parse("switch x then case 1, 2 then break; default then @writeln(\"other\"); endswitch");
-        assert!(matches!(&prog.body[0], Stmt::Switch { cases, default: Some(_), .. } if cases.len() == 1));
+        let prog = parse(
+            "switch x then case 1, 2 then break; default then @writeln(\"other\"); endswitch",
+        );
+        assert!(
+            matches!(&prog.body[0], Stmt::Switch { cases, default: Some(_), .. } if cases.len() == 1)
+        );
     }
 
     #[test]
@@ -870,8 +1049,19 @@ mod tests {
     fn test_operator_precedence() {
         // 2 + 3 * 4 should parse as 2 + (3 * 4)
         let prog = parse("2 + 3 * 4;");
-        if let Stmt::ExprStmt(Expr::BinaryOp { op: BinaryOp::Add, right, .. }) = &prog.body[0] {
-            assert!(matches!(right.as_ref(), Expr::BinaryOp { op: BinaryOp::Mul, .. }));
+        if let Stmt::ExprStmt(Expr::BinaryOp {
+            op: BinaryOp::Add,
+            right,
+            ..
+        }) = &prog.body[0]
+        {
+            assert!(matches!(
+                right.as_ref(),
+                Expr::BinaryOp {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
         } else {
             panic!("wrong ast shape");
         }
@@ -880,7 +1070,9 @@ mod tests {
     #[test]
     fn test_nested_call() {
         let prog = parse(r#"@writeln(@greet("World"));"#);
-        assert!(matches!(&prog.body[0], Stmt::ExprStmt(Expr::Call { name, .. }) if name == "writeln"));
+        assert!(
+            matches!(&prog.body[0], Stmt::ExprStmt(Expr::Call { name, .. }) if name == "writeln")
+        );
     }
 
     #[test]
