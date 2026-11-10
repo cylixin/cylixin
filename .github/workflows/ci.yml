@@ -1,0 +1,101 @@
+name: CI
+
+# Runs on every pull request and every push to main. Each check reports its own
+# status and, when it fails, adds annotations on the exact lines in "Files changed".
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # inkwell is built against LLVM 15 (see cylixin_compiler/Cargo.toml).
+  LLVM_SYS_150_PREFIX: /usr/lib/llvm-15
+
+jobs:
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          cache: false
+          matcher: false
+      - name: cargo fmt --check
+        run: .github/scripts/rust-check.sh fmt
+
+  build:
+    name: Build, lint and test
+    # 22.04 ships clang 14, which the build driver's `-mllvm -opaque-pointers`
+    # flag still works with (see issue #17 before moving to a newer image).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install LLVM 15 and clang
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq llvm-15-dev libzstd-dev zlib1g-dev clang
+          clang --version
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          cache-workspaces: cylixin_compiler
+          matcher: false
+
+      - name: Build
+        id: build
+        working-directory: cylixin_compiler
+        run: cargo build --all-targets
+
+      # The checks below each run even if an earlier one failed, so a pull
+      # request shows every problem at once instead of one per push.
+      - name: Clippy
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: .github/scripts/rust-check.sh clippy
+
+      - name: Unit tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: .github/scripts/rust-check.sh test
+
+      - name: Build and run examples
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: .github/scripts/rust-check.sh examples
+
+  summary:
+    name: All checks passed
+    # Single required check for branch protection: it fails if any job above failed.
+    if: ${{ always() }}
+    needs: [fmt, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report results
+        env:
+          FMT: ${{ needs.fmt.result }}
+          BUILD: ${{ needs.build.result }}
+        run: |
+          icon() { [ "$1" = success ] && echo "✅" || echo "❌"; }
+          {
+            echo "## Cylixin CI"
+            echo
+            echo "| Check | Result | Reproduce locally (in \`cylixin_compiler/\`) |"
+            echo "|---|---|---|"
+            echo "| Formatting | $(icon "$FMT") $FMT | \`cargo fmt\` to fix, \`cargo fmt --check\` to verify |"
+            echo "| Build, clippy, tests, examples | $(icon "$BUILD") $BUILD | \`cargo clippy --all-targets -- -D warnings\`, \`cargo test\`, \`cylixin build code_examples/demo.cyx\` |"
+            echo
+            if [ "$FMT" != success ] || [ "$BUILD" != success ]; then
+              echo "Failing lines are annotated in the pull request's **Files changed** tab. Open the failed job for the full log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$FMT" = success ] && [ "$BUILD" = success ]

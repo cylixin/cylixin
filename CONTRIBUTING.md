@@ -52,6 +52,26 @@ As Cylixin is currently in its early stages of development, the core team is pri
 5.  **Make your changes and commit them** with clear and concise commit messages.
 6.  **Submit a pull request** to the `main` branch of the `cylixin/cylixin` repository.
 
+### Automated Checks
+
+Every pull request runs CI automatically. A maintainer will start reviewing once all checks are green, so please fix any failures first. When a check fails, the problem lines are annotated in your pull request's **Files changed** tab, and the run's summary page lists the command that reproduces it.
+
+Run the same checks locally before pushing (from `cylixin_compiler/`):
+
+```bash
+cargo fmt                                   # formatting (CI runs cargo fmt --check)
+cargo clippy --all-targets -- -D warnings   # lints: any warning fails CI
+cargo test                                  # unit tests
+```
+
+Or run exactly what CI runs, from the repository root:
+
+```bash
+.github/scripts/rust-check.sh fmt      # also: clippy, test, examples
+```
+
+The `examples` check compiles every file in `cylixin_compiler/code_examples/` and runs `demo.cyx`, so a new example must build cleanly too.
+
 The core team will review your pull request and provide feedback. Please be patient as we are in the early stages of development.
 
 ### Documentation
