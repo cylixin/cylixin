@@ -193,7 +193,7 @@ impl Lexer {
         // otherwise  `5.endfor` would misread the dot
         if !self.is_at_end()
             && self.peek() == '.'
-            && self.peek_next().map_or(false, |c| c.is_ascii_digit())
+            && self.peek_next().is_some_and(|c| c.is_ascii_digit())
         {
             num.push(self.advance()); // the dot
             while !self.is_at_end() && self.peek().is_ascii_digit() {

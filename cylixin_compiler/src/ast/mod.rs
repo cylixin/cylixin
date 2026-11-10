@@ -147,6 +147,7 @@ pub enum Stmt {
     Return(Option<Expr>),
     Break(Option<String>),
     Continue(Option<String>),
+    #[allow(clippy::enum_variant_names)]
     ExprStmt(Expr),
 }
 

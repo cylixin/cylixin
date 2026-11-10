@@ -874,7 +874,7 @@ impl<'ctx> Compiler<'ctx> {
 
     fn current_block_needs_terminator(&self) -> bool {
         self.builder.get_insert_block()
-            .map_or(true, |bb| bb.get_terminator().is_none())
+            .is_none_or(|bb| bb.get_terminator().is_none())
     }
 
     /// Emits the `end_when` guard after a block exits.
