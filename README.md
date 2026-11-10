@@ -85,22 +85,35 @@ cargo build --release
 
 ### Run it
 
-The compiler currently takes its source from a hardcoded string in `src/main.rs` rather than a file argument. That's the first thing to change as the CLI matures; see [Contributing](CONTRIBUTING.md) if you'd like to help. To try it out:
+### Run it
+
+Cylixin provides a command-line interface (CLI) for compiling source files, emitting LLVM IR, and checking the compiler version.
+
+To compile a `.cyx` source file, run:
 
 ```bash
-cargo run
+cylixin build file.cyx
 ```
 
-This lexes, parses, and compiles the sample program in `main.rs`, writing the result to `output.ll` in the working directory. Turn that into an executable with:
+You can optionally specify the output path:
 
 ```bash
-clang output.ll cylixin_compiler/runtime.c -o program -lm
-./program
+cylixin build file.cyx -o out
 ```
 
-`runtime.c` provides the small C runtime backing sets and dictionaries (hash-table implementations for `cy_set`/`cy_dict`), and it's linked in alongside the generated IR.
+To emit LLVM IR:
 
-To experiment with your own program, edit the `source` string in `src/main.rs` and re-run `cargo run`.
+```bash
+cylixin emit
+```
+
+To check the compiler version:
+
+```bash
+cylixin version
+```
+
+For example, replace `file.cyx` with the path to your Cylixin source file.
 
 ## Repository Layout
 
