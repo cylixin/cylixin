@@ -6,12 +6,12 @@ This document walks through how `cylixin_compiler` turns Cylixin source text int
 
 ```
 source text
-    │
+    |
     ▼
-┌─────────┐    Vec<Token>    ┌─────────┐    Program (AST)    ┌──────────┐    LLVM IR    ┌───────┐
-│  Lexer  │ ───────────────▶ │  Parser │ ──────────────────▶ │  Codegen │ ────────────▶ │ clang │ ──▶ native binary
-└─────────┘                  └─────────┘                     └──────────┘               └───────┘
-src/lexer/                   src/parser/                     src/codegen/
+┌───────┐  Vec<Token>  ┌────────┐  Program (AST) ┌──────────┐  Checked AST  ┌─────────┐  LLVM IR ┌───────┐
+│ Lexer │ ───────────► │ Parser │ ─────────────► │ Semantic │ ────────────► │ Codegen │ ───────► │ clang │ ──► native binary
+└───────┘              └────────┘                └──────────┘               └─────────┘          └───────┘
+src/lexer/             src/parser/               src/semantic/              src/codegen/
 ```
 
 `src/main.rs` implements a CLI that reads `.cyx` files, drives all four stages, prints progress, writes the result to a `.ll` file, and calls `clang` to link the final executable.
@@ -49,6 +49,5 @@ Sets and dictionaries are backed by a small hash-table implementation in `runtim
 ## Known Architectural Gaps
 * There's no module or import system, so everything lives in one compilation unit today.
 * A semantic-analysis module exists at `src/semantic/mod.rs`. However, type mismatches on assignment and return are not yet implemented (see [#2](https://github.com/cylixin/cylixin/issues/2)).
-
 
 If you're planning a larger change to any of this, please open an issue first per [CONTRIBUTING.md](../CONTRIBUTING.md).
