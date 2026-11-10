@@ -25,6 +25,22 @@ We're always open to ideas for new features and improvements to Cylixin. If you 
 * **Use cases** or scenarios where this feature would be valuable.
 * **Any potential drawbacks or considerations.**
 
+### Picking Up an Issue
+
+Looking for something to work on? Start with issues labelled [`good first issue`](https://github.com/cylixin/cylixin/labels/good%20first%20issue), or see the roadmap in [#33](https://github.com/cylixin/cylixin/issues/33).
+
+To claim an issue, comment on it with:
+
+```
+/assign-me
+```
+
+A bot assigns the issue to you and moves it from `status: to do` to `status: in progress`, so others know it's taken. You can only claim issues that are open and not already assigned to someone else.
+
+Maintainers can assign someone else with `/assign @username`. GitHub only allows assigning people who have commented on the issue (or who are collaborators), so ask that person to comment first.
+
+If you can no longer work on an issue, say so in a comment so it can be freed up for someone else.
+
 ### Contributing Code (Early Stages)
 
 As Cylixin is currently in its early stages of development, the core team is primarily focused on the initial architecture and core features. If you are interested in contributing code, please first:
