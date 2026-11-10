@@ -25,7 +25,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt
@@ -40,12 +40,12 @@ jobs:
     # flag still works with (see issue #17 before moving to a newer image).
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install LLVM 15 and clang
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq llvm-15-dev libpolly-15-dev libzstd-dev zlib1g-dev clang
+          sudo apt-get install -y -qq llvm-15-dev libzstd-dev zlib1g-dev clang
           clang --version
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
