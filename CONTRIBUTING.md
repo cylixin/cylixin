@@ -9,9 +9,9 @@ We welcome contributions to the Cylixin project! Whether you're interested in re
 If you encounter a bug in Cylixin, please help us by submitting a detailed bug report. When reporting a bug, please include:
 
 * **A clear and descriptive title** for the issue.
-* **Steps to reproduce the bug** as clearly and concisely as possible.
+* **Steps to reproduce the bug**, ideally a short `.cyx` program that shows it.
 * **The expected behavior** and what actually happened.
-* **Your operating system and any relevant environment details.**
+* **Your operating system and any relevant environment details** (for example, your LLVM and clang versions).
 * **Any error messages or screenshots** that might be helpful.
 
 Please check the [issue tracker](https://github.com/cylixin/cylixin/issues) to see if the bug has already been reported. If so, feel free to add any additional information to the existing issue.
@@ -41,20 +41,32 @@ Maintainers can assign someone else with `/assign @username`. GitHub only allows
 
 If you can no longer work on an issue, say so in a comment so it can be freed up for someone else.
 
-### Contributing Code (Early Stages)
+## Contributing Code
 
-As Cylixin is currently in its early stages of development, the core team is primarily focused on the initial architecture and core features. If you are interested in contributing code, please first:
+Cylixin is in its early stages, so for anything bigger than a small fix, please **open or comment on an issue first** to agree on the approach. That avoids duplicated effort and work that doesn't fit the project's direction.
 
-1.  **Open an issue** to discuss your proposed contribution with the core team. This will help ensure that your work aligns with the project's goals and avoids potential duplication of effort.
-2.  **Fork the repository** to your own GitHub account.
-3.  **Create a new branch** for your changes with a descriptive name (e.g., `feature/new-syntax-element`, `bugfix/parser-error`).
-4.  **Follow any coding style guidelines** that are established (these will be documented here as they evolve).
-5.  **Make your changes and commit them** with clear and concise commit messages.
-6.  **Submit a pull request** to the `main` branch of the `cylixin/cylixin` repository.
+### Workflow
+
+1. **Claim the issue** with `/assign-me` (see above).
+2. **Fork the repository** to your own GitHub account.
+3. **Create a branch** with a descriptive name, for example `fix/const-reassign` or `feature/math-builtins`.
+4. **Make your changes**, with tests where it makes sense (see [Automated Checks](#automated-checks)).
+5. **Commit** with clear messages. We use the style `type: short description`, for example `fix: reject assignment to const`. Common types are `fix`, `feat`, `docs`, `test`, `ci`, `chore`, `style` and `refactor`.
+6. **Open a pull request** against `main`. Fill in the template, and link the issue with `Closes #123` so it closes automatically when merged.
+
+Keep each pull request focused on one issue. Small pull requests get reviewed much faster than large ones.
 
 ### Automated Checks
 
-Every pull request runs CI automatically. A maintainer will start reviewing once all checks are green, so please fix any failures first. When a check fails, the problem lines are annotated in your pull request's **Files changed** tab, and the run's summary page lists the command that reproduces it.
+Every pull request runs CI automatically:
+
+| Check | What it verifies |
+|---|---|
+| **Formatting** | The code is formatted with `cargo fmt` |
+| **Build, lint and test** | The compiler builds, `cargo clippy` reports no warnings, `cargo test` passes, and every file in `cylixin_compiler/code_examples/` compiles (`demo.cyx` is also run) |
+| **All checks passed** | All of the above succeeded. This is the check that must be green before merging. |
+
+When a check fails, the problem lines are annotated in your pull request's **Files changed** tab, and the run's summary page lists the command that reproduces it. **Please fix failing checks before asking for review.** Maintainers review pull requests once they're green.
 
 Run the same checks locally before pushing (from `cylixin_compiler/`):
 
@@ -70,20 +82,37 @@ Or run exactly what CI runs, from the repository root:
 .github/scripts/rust-check.sh fmt      # also: clippy, test, examples
 ```
 
-The `examples` check compiles every file in `cylixin_compiler/code_examples/` and runs `demo.cyx`, so a new example must build cleanly too.
+### Review and Merging
 
-The core team will review your pull request and provide feedback. Please be patient as we are in the early stages of development.
+`main` is protected. A pull request can only be merged when:
 
-### Documentation
+1. **All checks passed** is green.
+2. **A maintainer has approved it.** Approvals only count from people with write access to the repository.
+3. **The approval is for the latest version.** Pushing new commits dismisses earlier approvals, so the final code is always what was reviewed.
+4. **All review conversations are resolved.**
 
-Contributions to the documentation (once it exists in the `cylixin-docs` repository) will also be highly valued. Please follow the guidelines outlined in that repository's `CONTRIBUTING.md` (to be created later).
+What to expect:
+
+* A maintainer will review your pull request once its checks pass. If nobody has responded after a few days, it's fine to leave a polite comment asking for a review.
+* Reviewers may request changes. Push new commits to the same branch to address them, then resolve each conversation once it's handled, or reply if you disagree.
+* Once approved, a maintainer merges the pull request. You don't need to do anything else.
+
+## Documentation
+
+Documentation lives in the [`docs/`](docs) folder of this repository:
+
+* [`docs/syntax.md`](docs/syntax.md): the language as it's implemented today
+* [`docs/architecture.md`](docs/architecture.md): how the compiler is put together
+* [`docs/design_principles.md`](docs/design_principles.md): the long-term direction
+
+Documentation changes go through the same pull request process as code. If your change adds or alters language behavior, please update `docs/syntax.md` in the same pull request.
 
 ## Code of Conduct
 
-We expect all contributors to be respectful and considerate of others. Please adhere to the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/0/code_of_conduct.html).
+We expect all contributors to be respectful and considerate of others. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Questions and Discussion
 
-For questions and discussions related to Cylixin development, please join our community channels (links will be added here when available).
+For questions, ideas and general discussion, use [GitHub Discussions](https://github.com/cylixin/cylixin/discussions). For anything about a specific issue or pull request, comment there instead.
 
 Thank you for your interest in contributing to Cylixin! Your help is invaluable.

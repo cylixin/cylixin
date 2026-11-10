@@ -9,7 +9,7 @@ If this pull request addresses one or more specific issues, please link them her
 ## Checklist
 
 - [ ] I have read the [CONTRIBUTING.md](CONTRIBUTING.md) document.
-- [ ] My code follows the project's coding style guidelines (if established).
+- [ ] I ran `cargo fmt` and `cargo clippy --all-targets -- -D warnings` (see [Automated Checks](CONTRIBUTING.md#automated-checks)).
 - [ ] I have added tests that cover my changes (if applicable).
 - [ ] All new and existing tests pass.
 - [ ] My changes generate no new warnings.
