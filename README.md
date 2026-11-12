@@ -87,45 +87,53 @@ cargo build --release
 
 Cylixin provides a command-line interface (CLI) for compiling source files, emitting LLVM IR, and checking the compiler version.
 
+After building the compiler with `cargo build --release`, the executable is located at `target/release/cylixin` inside `cylixin_compiler/`.
+
 To compile a `.cyx` source file, run:
 
 ```bash
-cylixin build file.cyx
+./target/release/cylixin build code_examples/demo.cyx
+```
+
+This produces a native executable named `demo`. To run it:
+
+```bash
+./demo
 ```
 
 You can optionally specify the output executable name:
 
 ```bash
-cylixin build file.cyx -o out
+./target/release/cylixin build code_examples/demo.cyx -o out
 ```
 
 To emit LLVM IR:
 
 ```bash
-cylixin emit file.cyx
+./target/release/cylixin emit code_examples/demo.cyx
 ```
 
 To check the compiler version:
 
 ```bash
-cylixin version
+./target/release/cylixin version
 ```
 
-For example, replace `file.cyx` with the path to your Cylixin source file.
+Replace `code_examples/demo.cyx` with the path to your Cylixin source file.
 
 ## Repository Layout
 
 ```
 cylixin/
-├── cylixin_compiler/       # The compiler (Rust)
+├── cylixin_compiler/        # The compiler (Rust)
 │   ├── src/
-│   │   ├── lexer/          # Source text to tokens
+│   │   ├── lexer/           # Source text to tokens
 │   │   ├── ast/             # AST node definitions
 │   │   ├── parser/          # Tokens to AST
 │   │   ├── semantic/        # Semantic analysis
 │   │   ├── codegen/         # AST to LLVM IR (via inkwell)
-│   │   └── main.rs          # Entry point / demo program
-│   └── runtime.c            # C runtime for sets & dicts
+│   │   └── main.rs          # CLI entry point
+│   └── runtime.c            # C runtime for sets & dicts, automatically linked by cylixin build
 ├── docs/
 │   ├── design_principles.md
 │   ├── syntax.md

@@ -8,7 +8,7 @@ This document walks through how `cylixin_compiler` turns Cylixin source text int
 source text
     |
     ▼
-┌───────┐  Vec<Token>  ┌────────┐  Program (AST) ┌──────────┐  Checked AST  ┌─────────┐  LLVM IR ┌───────┐
+┌───────┐  Vec<Token>  ┌────────┐  Program (AST) ┌──────────┐  AST (checked)┌─────────┐  LLVM IR ┌───────┐
 │ Lexer │ ───────────► │ Parser │ ─────────────► │ Semantic │ ────────────► │ Codegen │ ───────► │ clang │ ──► native binary
 └───────┘              └────────┘                └──────────┘               └─────────┘          └───────┘
 src/lexer/             src/parser/               src/semantic/              src/codegen/
