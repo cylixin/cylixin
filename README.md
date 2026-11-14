@@ -24,7 +24,7 @@ For the philosophy behind these design choices, see [Design Principles](docs/des
 
 ## Project Status
 
-Cylixin is **pre-alpha**. There is no package manager and no standard library beyond `write`/`writeln`, and there's no installable release yet: you build the compiler from source and invoke it directly. That said, the core pipeline is functional today:
+Cylixin is **pre-alpha**. There is no package manager and no standard library beyond `write`/`writeln` and `@read`, and there's no installable release yet: you build the compiler from source and invoke it directly. That said, the core pipeline is functional today:
 
 | Stage | Status |
 |---|---|
@@ -32,7 +32,7 @@ Cylixin is **pre-alpha**. There is no package manager and no standard library be
 | Parser → AST | ✅ Working |
 | LLVM IR codegen | ✅ Working (ints, longs, floats, bools, chars, strings, arrays, sets, dicts, functions) |
 | Native compilation | ✅ Working, via `clang`/`llc` on the emitted `.ll` file |
-| Standard library | 🚧 `write` / `writeln` only |
+| Standard library | 🚧 `write` / `writeln` and `@read` |
 | Package manager | 📋 Planned, not started |
 
 See [Architecture](docs/architecture.md) for how the pieces fit together, and [Syntax Reference](docs/syntax.md) for exactly what the language supports right now, including a few rough edges that are still being ironed out.
@@ -85,35 +85,55 @@ cargo build --release
 
 ### Run it
 
-The compiler currently takes its source from a hardcoded string in `src/main.rs` rather than a file argument. That's the first thing to change as the CLI matures; see [Contributing](CONTRIBUTING.md) if you'd like to help. To try it out:
+Cylixin provides a command-line interface (CLI) for compiling source files, emitting LLVM IR, and checking the compiler version.
+
+After building the compiler with `cargo build --release`, the executable is located at `target/release/cylixin` inside `cylixin_compiler/`.
+
+To compile a `.cyx` source file, run:
 
 ```bash
-cargo run
+./target/release/cylixin build code_examples/demo.cyx
 ```
 
-This lexes, parses, and compiles the sample program in `main.rs`, writing the result to `output.ll` in the working directory. Turn that into an executable with:
+This produces a native executable named `demo`. To run it:
 
 ```bash
-clang output.ll cylixin_compiler/runtime.c -o program -lm
-./program
+./demo
 ```
 
-`runtime.c` provides the small C runtime backing sets and dictionaries (hash-table implementations for `cy_set`/`cy_dict`), and it's linked in alongside the generated IR.
+You can optionally specify the output executable name:
 
-To experiment with your own program, edit the `source` string in `src/main.rs` and re-run `cargo run`.
+```bash
+./target/release/cylixin build code_examples/demo.cyx -o out
+```
+
+To emit LLVM IR:
+
+```bash
+./target/release/cylixin emit code_examples/demo.cyx
+```
+
+To check the compiler version:
+
+```bash
+./target/release/cylixin version
+```
+
+Replace `code_examples/demo.cyx` with the path to your Cylixin source file.
 
 ## Repository Layout
 
 ```
 cylixin/
-├── cylixin_compiler/       # The compiler (Rust)
+├── cylixin_compiler/        # The compiler (Rust)
 │   ├── src/
-│   │   ├── lexer/          # Source text to tokens
-│   │   ├── ast/            # AST node definitions
-│   │   ├── parser/         # Tokens to AST
-│   │   ├── codegen/        # AST to LLVM IR (via inkwell)
-│   │   └── main.rs         # Entry point / demo program
-│   └── runtime.c           # C runtime for sets & dicts
+│   │   ├── lexer/           # Source text to tokens
+│   │   ├── ast/             # AST node definitions
+│   │   ├── parser/          # Tokens to AST
+│   │   ├── semantic/        # Semantic analysis
+│   │   ├── codegen/         # AST to LLVM IR (via inkwell)
+│   │   └── main.rs          # CLI entry point
+│   └── runtime.c            # C runtime for sets & dicts, automatically linked by cylixin build
 ├── docs/
 │   ├── design_principles.md
 │   ├── syntax.md

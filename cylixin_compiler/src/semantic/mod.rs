@@ -7,7 +7,8 @@
 //!   3. Wrong number of arguments to a user-defined function.
 //!   4. `break` / `continue` outside a loop.
 //!   5. `return` outside a function.
-//!   6. Type mismatch on assignment and `return` (best-effort; only checks the obvious cases).
+//!
+//! Type mismatches on variable declarations, assignments, and `return` are not checked yet (see issue #2).
 //!
 //! Span information is best-effort: every statement carries no span today,
 //! so errors on statements report (0, 0). Expression-level errors inside a
